@@ -1,0 +1,8 @@
+source leaprc.gaff
+source oldff/leaprc.ff99SBildn
+source leaprc.water.spce
+LIG = loadmol2 /home/giacomo/Documents/hPARP-1/RUN_3/ligands/Etoposide/LIG.mol2
+loadamberparams /home/giacomo/Documents/hPARP-1/RUN_3/ligands/Etoposide/LIG.frcmod
+complex = loadpdb /home/giacomo/Documents/hPARP-1/RUN_3/complexes/hPARP-1_Etoposide/hPARP-1_Etoposide_protein_1.pdb
+saveamberparm complex /home/giacomo/Documents/hPARP-1/RUN_3/complexes/hPARP-1_Etoposide/hPARP-1_Etoposide_protein_1.prmtop /home/giacomo/Documents/hPARP-1/RUN_3/complexes/hPARP-1_Etoposide/hPARP-1_Etoposide_protein_1.prmcrd
+quit

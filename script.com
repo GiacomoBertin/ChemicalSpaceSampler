@@ -1,0 +1,12 @@
+ligand = /home/giacomo/Documents/hPARP-1/RUN_3/complexes/hPARP-1_Etoposide/hPARP-1_Etoposide_ligand.pdbqt
+receptor = /home/giacomo/Documents/hPARP-1/RUN_3/complexes/hPARP-1_Etoposide/hPARP-1_Etoposide_protein.pdbqt
+center_x = 96.01678998003266
+center_y = -0.4021301506625522
+center_z = 125.21307823561445
+size_x = 64.09
+size_y = 50.799
+size_z = 58.627999999999986
+out = /home/giacomo/Documents/hPARP-1/RUN_3/complexes/hPARP-1_Etoposide/hPARP-1_Etoposide_ligand_vina.pdbqt
+num_modes = 9
+exhaustiveness = 30
+log = /home/giacomo/Documents/hPARP-1/RUN_3/complexes/hPARP-1_Etoposide/log.txt
