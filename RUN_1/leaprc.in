@@ -1,0 +1,9 @@
+source leaprc.gaff
+source oldff/leaprc.ff99SBildn
+source leaprc.water.spce
+protein = loadpdb /home/giacomo/PycharmProjects/DrugDiscovery_hPARP/RUN_1/hPARP-1.pdb
+saveamberparm protein /home/giacomo/PycharmProjects/DrugDiscovery_hPARP/RUN_1/hPARP-1.prmtop /home/giacomo/PycharmProjects/DrugDiscovery_hPARP/RUN_1/hPARP-1.prmcrd
+solvateBox protein TIP3PBOX 10.0 
+addIonsRand protein K+ 0 
+addIonsRand protein Cl- 0 
+quit

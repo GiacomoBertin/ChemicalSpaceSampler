@@ -1,0 +1,89 @@
+###################################################################################################################
+All ligands started from Retrieved on /7/10/18
+
+This is Zinc15 database with ligands MW up to 250Da, with a logP range of 2-4.5
+I can than take those and run the database threw Lipinski and Ghose)
+              -These have been filtered for purchasing availability.
+
+
+### The following ligands had less than 100 ligands from this search:
+		group:               			number of ligands found
+		aminobenzenethiol.smi:   		65
+		benzil_or_benzoin.smi:   		85
+		isocyanate.smi:   			1
+		isothiocyanate.smi:   			1
+		primary_or_secondary_halide.smi:  	21
+
+
+
+###################################################################################################################
+
+The functional groups which were not present (had less than 100 molecules) were then filled in using:
+	Zinc15 database with ligands MW up to 250Da, with a logP range of 2-4.5
+	I can than take those and run the database threw Lipinski and Ghose)
+	      	-These have been filtered for Any availability.
+		Retrieved on /7/10/18
+	- The resulting ligands were pooled for both ZINC15 database searches and redundancies were removed.
+
+		aminobenzenethiol.smi:   		119
+		benzil_or_benzoin.smi:   		87
+		isothiocyanate.smi:			1
+		isocyanate.smi:    			1
+		primary_or_secondary_halide.smi:	32
+
+		-This provided ligand sets for: aminobenzenethiol.smi (119 ligands) and benzil_or_benzoin (85 ligands)
+
+###################################################################################################################
+Ligands from Autogrow 3.1.1's fragment library were converted from PDB's to 1D canonical SMILES, compiled into a single .smi file store in folder from_autogrow311.
+These ligands were any ligand less than 250Da from autogrows fragment library.
+	- Redundancies were removed and all SMILES were confirmed to work in rdkit.
+
+-These were then sorted by functional groups.
+
+We used these to fill in the following functional groups, by combining with the ligands found in the above description...
+
+		benzil_or_benzoin.smi:   		87
+		isothiocyanate.smi:			1267
+		isocyanate.smi:    			1590
+		primary_or_secondary_halide.smi:	1191
+
+###################################################################################################################
+
+
+These were then filtered to ensure that they worked in every reaction which calls that functional group,
+	-ie ) if a reaction is primary_or_secondary_halide + benzil_or_benzoin -> product
+		- we ran 1191 reactions with primary_or_secondary_halide as the variable and the same benzil_or_benzoin as a control
+			and we ran 87 reactions with the primary_or_secondary_halide as the control and benzil_or_benzoin as the variable.
+
+	 
+These resulted in 14 ligand populations exceeding 100,000 ligands:
+['5_mem_aryl_w_NH_max2N', 'alcohol', 'aldehyde_or_ketone', 'alkyl_halogen_or_alcohol', 'amide', 'aryl_halide', 'carboxylic_acid', 'carboxylic_acid_or_ester', 'halide', 'hydrazine', 'ketone', 'nitrile', 'phenole', 'primary_amine', 'pyridine_pyrimidine_triazine', 'terminal_alkyne']
+
+These libraries were trimmed down to 50,000 ligands for efficiency. They were randomly shuffled 5 times prior to selecting the 50k thus no intrinsic bias to their selection.
+
+	We eliminated any ligands which failed this. We than ran the ligands threw all of the filters in that are offered by in Autogrow 4 (Ghose, Lipinski_Strict, Lipinski_Lenient, Mozziconacci, VandeWaterbeemd, PAINS_Filter, BRENK_Filter, NIH_Filter)
+
+	- For several groups it these filters were too strict and eliminated all the ligands, filters such as the BRENK and NIH filter eliminated structural groups which were unstable even though those are required, or contains atleast 1 Oxygen was eliminated when it removed all ligands from the populations.
+
+
+
+
+
+
+
+carboxylic_acid_or_ester_pickle sucessfully trimmer 329237  ligands to 50000 ligands
+aldehyde_or_ketone_pickle sucessfully trimmer 3914906  ligands to 50000 ligands
+alkyl_halogen_or_alcohol_pickle sucessfully trimmer 782066  ligands to 50000 ligands
+amide_pickle sucessfully trimmer 1939597  ligands to 50000 ligands
+aryl_halide_pickle sucessfully trimmer 259605  ligands to 50000 ligands
+carboxylic_acid_pickle sucessfully trimmer 191460  ligands to 50000 ligands
+halide_pickle sucessfully trimmer 410064  ligands to 50000 ligands
+hydrazine_pickle sucessfully trimmer 133181  ligands to 50000 ligands
+ketone_pickle sucessfully trimmer 103912  ligands to 50000 ligands
+nitrile_pickle sucessfully trimmer 697059  ligands to 50000 ligands
+phenole_pickle sucessfully trimmer 196368  ligands to 50000 ligands
+primary_amine_pickle sucessfully trimmer 275562  ligands to 50000 ligands
+pyridine_pyrimidine_triazine_pickle sucessfully trimmer 140235  ligands to 50000 ligands
+terminal_alkyne_pickle sucessfully trimmer 234584  ligands to 50000 ligands
+
+

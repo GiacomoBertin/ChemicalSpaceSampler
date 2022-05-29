@@ -1,0 +1,12 @@
+ligand = /home/giacomo/Documents/LCP_runs/docking/complexes/173/4UYG_173_ligand.pdbqt
+receptor = /home/giacomo/Documents/LCP_runs/docking/complexes/173/4UYG_173_protein.pdbqt
+center_x = 4.856439303211759
+center_y = -18.13117201959717
+center_z = 4.124696788241699
+size_x = 73.314
+size_y = 89.018
+size_z = 90.374
+out = /home/giacomo/Documents/LCP_runs/docking/complexes/173/4UYG_173_ligand_vina.pdbqt
+num_modes = 3
+exhaustiveness = 32
+log = /home/giacomo/Documents/LCP_runs/docking/complexes/173/log.txt

@@ -1,0 +1,344 @@
+{
+	"1_Epoxide_and_Alcohol": {
+		"reaction_name": "1_Epoxide_and_Alcohol",
+		"reaction_string": "[*:1]C1([*:2])OC1([*:3])[*:4].O=,-[*:5]>>OC([*:3])([*:4])C([*:1])([*:2])O-[*:5]",
+		"functional_groups": ["Epoxide", "Alcohol_1R"],
+		"group_smarts": ["[*:1]C1([*:2])[#8]C1([*:3])[*:4]", "O=,-[*:1]"],
+		"example_reactants": ["CC(C)(C)C1(O)OC1(C)C", "FCCC(O)"],
+		"num_reactants": 2,
+		"RXN_NUM": 1
+	},
+	"2_Epoxide_and_Thiol": {
+		"reaction_name": "2_Epoxide_and_Thiol",
+		"reaction_string": "[*:1]C1([*:2])OC1([*:3])[*:4].S[*:5]>>OC([*:3])([*:4])C([*:1])([*:2])S[*:5]",
+		"functional_groups": ["Epoxide", "Thiol_1R"],
+		"group_smarts": ["[*:1]C1([*:2])[#8]C1([*:3])[*:4]", "S[*:1]"],
+		"example_reactants": ["CC(C)(C)C1(O)OC1(C)C", "O=C([O-])OC(=O)CC[S-]"],
+		"num_reactants": 2,
+		"RXN_NUM": 2
+	},
+	"3_Alkene_Oxidized_To_Epoxide": {
+		"reaction_name": "3_Alkene_Oxidized_To_Epoxide",
+		"reaction_string": "[*:1]C([*:2])=C([*:3])[*:4]>>[*:1]C1([*:2])OC1([*:3])[*:4]",
+		"functional_groups": ["Alkene"],
+		"group_smarts": ["[*:1][#6]([*:2])=[#6]([*:3])[*:4]"],
+		"example_reactants": ["O=C1OC(=O)C2=C1CC2"],
+		"num_reactants": 1,
+		"RXN_NUM": 3
+	},
+	"4_Sulfonyl_Azide_and_Thio_Acid": {
+		"reaction_name": "4_Sulfonyl_Azide_and_Thio_Acid",
+		"reaction_string": "[*:1]S(=O)(=O)N=[N+]=[N-].[*:2]C([#16])=O>>[*:1]S(=O)(=O)N-C([*:2])=O",
+		"functional_groups": ["Sulfonyl_Azide", "Thio_Acid"],
+		"group_smarts": ["[*:1]S(=O)(=O)[#7]=[N+]=[#7-]", "[*:2]C([#16])=O"],
+		"example_reactants": ["C=CCS(=O)(=O)N=[N+]=[N-]", "O=C(S)C(O)CC1CNNN1"],
+		"num_reactants": 2,
+		"RXN_NUM": 4
+	},
+	"5_Alkyne_and_Azide": {
+		"reaction_name": "5_Alkyne_and_Azide",
+		"reaction_string": "[*:2]C#C[*:3].[*:1]N=[N+]=[N-]>>[*:1]N-1-N=N-C([*:2])=C-1[*:3]",
+		"functional_groups": ["Alkyne", "Azide_1R"],
+		"group_smarts": ["[*:2]C#C[*:1]", "[*:1][#7]=[N+]=[#7-]"],
+		"example_reactants": ["CC#CCOC(=O)Cl", "[N-]=[N+]=NCC1CCCCO1"],
+		"num_reactants": 2,
+		"RXN_NUM": 5
+	},
+	"6_Halide_To_Azide": {
+		"reaction_name": "6_Halide_To_Azide",
+		"reaction_string": "[*:1][#6]([*:2])([*:3])[F,Cl,Br,I]>>[*:1][#6]([*:2])([*:3])N=[N+]=[N-]",
+		"functional_groups": ["Halide"],
+		"group_smarts": ["[*:1]C([*:2])([*:3])[F,Cl,Br,I]"],
+		"example_reactants": ["CC(C(=O)F)C(F)(F)F"],
+		"num_reactants": 1,
+		"RXN_NUM": 6
+	},
+	"7_Halide_To_Cyanide": {
+		"reaction_name": "7_Halide_To_Cyanide",
+		"reaction_string": "[*:1]C([*:2])([*:3])[F,Cl,Br,I]>>[*:1]C([*:2])([*:3])C#N",
+		"functional_groups": ["Halide"],
+		"group_smarts": ["[*:1]C([*:2])([*:3])[F,Cl,Br,I]"],
+		"example_reactants": ["CC(C(=O)F)C(F)(F)F"],
+		"num_reactants": 1,
+		"RXN_NUM": 7
+	},
+	"8_Alcohol_To_Azide": {
+		"reaction_name": "8_Alcohol_To_Azide",
+		"reaction_string": "O=,-C([*:1])([*:2])[*:3]>>[*:1]C([*:2])([*:3])N=[N+]=[N-]",
+		"functional_groups": ["Alcohol_3R"],
+		"group_smarts": ["O=,-C([*:1])([*:2])[*:3]"],
+		"example_reactants": ["C(O)(C)(C)CCCC"],
+		"num_reactants": 1,
+		"RXN_NUM": 8
+	},
+	"9_Alcohol_To_Cyanide": {
+		"reaction_name": "9_Alcohol_To_Cyanide",
+		"reaction_string": "O=,-C([*:1])([*:2])[*:3]>>[*:1]C([*:2])([*:3])C#N",
+		"functional_groups": ["Alcohol_3R"],
+		"group_smarts": ["O=,-C([*:1])([*:2])[*:3]"],
+		"example_reactants": ["C(O)(C)(C)CCCC"],
+		"num_reactants": 1,
+		"RXN_NUM": 9
+	},
+	"10_Primary_Amine_Oxidized_To_an_Azide": {
+		"reaction_name": "10_Primary_Amine_Oxidized_To_an_Azide",
+		"reaction_string": "[NH2][*:1]>>[*:1]N=[N+]=[N-]",
+		"functional_groups": ["Primary_Amine_1R"],
+		"group_smarts": ["[NH2][*:1]"],
+		"example_reactants": ["NC(=O)O"],
+		"num_reactants": 1,
+		"RXN_NUM": 10
+	},
+	"11_Primary_Amine_Oxidized_To_an_Isocyanate": {
+		"reaction_name": "11_Primary_Amine_Oxidized_To_an_Isocyanate",
+		"reaction_string": "[NH2][*:1]>>[*:1]N=C=O",
+		"functional_groups": ["Primary_Amine_1R"],
+		"group_smarts": ["[NH2][*:1]"],
+		"example_reactants": ["NC(=O)O"],
+		"num_reactants": 1,
+		"RXN_NUM": 11
+	},
+	"12_Primary_Amine_Oxidized_To_an_Isothiocyanate": {
+		"reaction_name": "12_Primary_Amine_Oxidized_To_an_Isothiocyanate",
+		"reaction_string": "[NH2][*:1]>>[*:1]N=C=S",
+		"functional_groups": ["Primary_Amine_1R"],
+		"group_smarts": ["[NH2][*:1]"],
+		"example_reactants": ["NC(=O)O"],
+		"num_reactants": 1,
+		"RXN_NUM": 12
+	},
+	"13_Azide_Reduced_To_Amine": {
+		"reaction_name": "13_Azide_Reduced_To_Amine",
+		"reaction_string": "[*:1]N=[N+]=[N-]>>[NH2][*:1]",
+		"functional_groups": ["Azide_1R"],
+		"group_smarts": ["[*:1][#7]=[N+]=[#7-]"],
+		"example_reactants": ["[N-]=[N+]=NCC1CCCCO1"],
+		"num_reactants": 1,
+		"RXN_NUM": 13
+	},
+	"14_Carbonochloridate_and_Amine": {
+		"reaction_name": "14_Carbonochloridate_and_Amine",
+		"reaction_string": "ClC(=O)-O[*:1].[*:2][NH1][*:3]>>[*:1]O-C(=O)-N([*:2])[*:3]",
+		"functional_groups": ["Carbonochloridate", "Amine_2R"],
+		"group_smarts": ["Cl[#6](=O)-[#8][*:1]", "[*:2][NH1][*:1]"],
+		"example_reactants": ["O=C(Cl)OC(=O)Cl", "O=C1CNC(=O)O1"],
+		"num_reactants": 2,
+		"RXN_NUM": 14
+	},
+	"15_Carboxylate_and_Amine": {
+		"reaction_name": "15_Carboxylate_and_Amine",
+		"reaction_string": "O-C([*:1])=O.[*:2][NH1][*:3]>>[*:1]C(=O)-N([*:2])[*:3]",
+		"functional_groups": ["Carboxylate", "Amine_2R"],
+		"group_smarts": ["[#8]-C([*:1])=O", "[*:2][NH1][*:1]"],
+		"example_reactants": ["c1ccccc1CC(=O)O", "O=C1CNC(=O)O1"],
+		"num_reactants": 2,
+		"RXN_NUM": 15
+	},
+	"16_Carboxylate_and_Alcohol": {
+		"reaction_name": "16_Carboxylate_and_Alcohol",
+		"reaction_string": "O-C([*:1])=O.O=,-[*:2]>>[*:1]C(=O)-O[*:2]",
+		"functional_groups": ["Carboxylate", "Alcohol_1R"],
+		"group_smarts": ["[#8]-C([*:1])=O", "O=,-[*:1]"],
+		"example_reactants": ["c1ccccc1CC(=O)O", "FCCC(O)"],
+		"num_reactants": 2,
+		"RXN_NUM": 16
+	},
+	"17_Carboxylate_and_Thiol": {
+		"reaction_name": "17_Carboxylate_and_Thiol",
+		"reaction_string": "O-C([*:1])=O.S[*:2]>>[*:1]C(=O)-S[*:2]",
+		"functional_groups": ["Carboxylate", "Thiol_1R"],
+		"group_smarts": ["[#8]-C([*:1])=O", "S[*:1]"],
+		"example_reactants": ["c1ccccc1CC(=O)O", "O=C([O-])OC(=O)CC[S-]"],
+		"num_reactants": 2,
+		"RXN_NUM": 17
+	},
+	"18_Carboxylate_To_Cyanide": {
+		"reaction_name": "18_Carboxylate_To_Cyanide",
+		"reaction_string": "O-C([*:1])=O>>[*:1]C(=O)C#N",
+		"functional_groups": ["Carboxylate"],
+		"group_smarts": ["[#8]-C([*:1])=O"],
+		"example_reactants": ["c1ccccc1CC(=O)O"],
+		"num_reactants": 1,
+		"RXN_NUM": 18
+	},
+	"19_Carboxylate_To_Azide": {
+		"reaction_name": "19_Carboxylate_To_Azide",
+		"reaction_string": "O-C([*:1])=O>>[*:1]C(=O)-N=[N+]=[N-]",
+		"functional_groups": ["Carboxylate"],
+		"group_smarts": ["[#8]-C([*:1])=O"],
+		"example_reactants": ["c1ccccc1CC(=O)O"],
+		"num_reactants": 1,
+		"RXN_NUM": 19
+	},
+	"20_Acyl_Halide_and_Amine": {
+		"reaction_name": "20_Acyl_Halide_and_Amine",
+		"reaction_string": "[*:1]C(-[F,Cl,Br,I])=O.[*:2]N[*:3]>>[*:1]C(=O)-N([*:2])[*:3]",
+		"functional_groups": ["Acyl_Halide", "Amine_2R"],
+		"group_smarts": ["[*:1]C(-[F,Cl,Br,I])=O", "[*:2][NH1][*:1]"],
+		"example_reactants": ["O=C(Cl)OC(=O)Cl", "O=C1CNC(=O)O1"],
+		"num_reactants": 2,
+		"RXN_NUM": 20
+	},
+	"21_Acyl_Halide_and_Alcohol": {
+		"reaction_name": "21_Acyl_Halide_and_Alcohol",
+		"reaction_string": "[*:1]C(-[F,Cl,Br,I])=O.O=,-[*:2]>>[*:1]C(=O)-O[*:2]",
+		"functional_groups": ["Acyl_Halide", "Alcohol_1R"],
+		"group_smarts": ["[*:1]C(-[F,Cl,Br,I])=O", "O=,-[*:1]"],
+		"example_reactants": ["O=C(Cl)OC(=O)Cl","FCCC(O)"],
+		"num_reactants": 2,
+		"RXN_NUM": 21
+	},
+	"22_Acyl_Halide_and_Thiol": {
+		"reaction_name": "22_Acyl_Halide_and_Thiol",
+		"reaction_string": "[*:1]C(-[F,Cl,Br,I])=O.S[*:2]>>[*:1]C(=O)-S[*:2]",
+		"functional_groups": ["Acyl_Halide", "Thiol_1R"],
+		"group_smarts": ["[*:1]C(-[F,Cl,Br,I])=O","S[*:1]"],
+		"example_reactants": ["O=C(Cl)OC(=O)Cl", "O=C([O-])OC(=O)CC[S-]"],
+		"num_reactants": 2,
+		"RXN_NUM": 22
+	},
+	"23_Acyl_Halide_To_Cyanide": {
+		"reaction_name": "23_Acyl_Halide_To_Cyanide",
+		"reaction_string": "[*:1]C(-[F,Cl,Br,I])=O>>[*:1]C(=O)C#N",
+		"functional_groups": ["Acyl_Halide"],
+		"group_smarts": ["[*:1]C(-[F,Cl,Br,I])=O"],
+		"example_reactants": ["O=C(Cl)OC(=O)Cl"],
+		"num_reactants": 1,
+		"RXN_NUM": 23
+	},
+	"24_Acyl_Halide_To_Azide": {
+		"reaction_name": "24_Acyl_Halide_To_Azide",
+		"reaction_string": "[*:1]C(-[F,Cl,Br,I])=O>>[*:1]C(=O)-N=[N+]=[N-]",
+		"functional_groups": ["Acyl_Halide"],
+		"group_smarts": ["[*:1]C(-[F,Cl,Br,I])=O"],
+		"example_reactants": ["O=C(Cl)OC(=O)Cl"],
+		"num_reactants": 1,
+		"RXN_NUM": 24
+	},
+	"25_Ester_and_Amine": {
+		"reaction_name": "25_Ester_and_Amine",
+		"reaction_string": "[*:1]C(=O)-O[*:4].[*:2]N[*:3]>>[*:1]C(=O)-N([*:2])[*:3]",
+		"functional_groups": ["Ester", "Amine_2R"],
+		"group_smarts": ["[*:1]C(=O)-O[*:2]", "[*:2][NH1][*:1]"],
+		"example_reactants": ["C1CCNC(C(=O)-OCC)1", "O=C1CNC(=O)O1"],
+		"num_reactants": 2,
+		"RXN_NUM": 25
+	},
+	"26_Ester_and_Alcohol": {
+		"reaction_name": "26_Ester_and_Alcohol",
+		"reaction_string": "[*:1]C(=O)-O[*:3].O=,-[*:2]>>[*:1]C(=O)-O[*:2]",
+		"functional_groups": ["Ester", "Alcohol_1R"],
+		"group_smarts": ["[*:1]C(=O)-O[*:2]", "O=,-[*:1]"],
+		"example_reactants": ["C1CCNC(C(=O)-OCC)1", "FCCC(O)"],
+		"num_reactants": 2,
+		"RXN_NUM": 26
+	},
+	"27_Ester_and_Thiol": {
+		"reaction_name": "27_Ester_and_Thiol",
+		"reaction_string": "[*:1]C(=O)-O[*:3].S[*:2]>>[*:1]C(=O)-S[*:2]",
+		"functional_groups": ["Ester", "Thiol_1R"],
+		"group_smarts": ["[*:1]C(=O)-O[*:2]", "S[*:1]"],
+		"example_reactants": ["C1CCNC(C(=O)-OCC)1", "O=C([O-])OC(=O)CC[S-]"],
+		"num_reactants": 2,
+		"RXN_NUM": 27
+	},
+	"28_Acid_Anhydride_and_Amine": {
+		"reaction_name": "28_Acid_Anhydride_and_Amine",
+		"reaction_string": "[*:1]C(=O)-O-C([*:4])=O.[*:2][NH1][*:3]>>[*:1]C(=O)-N([*:2])[*:3]",
+		"functional_groups": ["Acid_Anhydride", "Amine_2R"],
+		"group_smarts": ["[*:1][#6](=O)-[#8]-[#6]([*:2])=O", "[*:2][NH1][*:1]"],
+		"example_reactants": ["C1CCC(CC1)C(=O)OC(=O)C2CCCCC2", "O=C1CNC(=O)O1"],
+		"num_reactants": 2,
+		"RXN_NUM": 28
+	},
+	"29_Acid_Anhydride_and_Alcohol": {
+		"reaction_name": "29_Acid_Anhydride_and_Alcohol",
+		"reaction_string": "[*:1]C(=O)-O-C([*:3])=O.O=,-[*:2]>>[*:1]C(=O)-O[*:2]",
+		"functional_groups": ["Acid_Anhydride", "Alcohol_1R"],
+		"group_smarts": ["[*:1][#6](=O)-[#8]-[#6]([*:2])=O", "O=,-[*:1]"],
+		"example_reactants": ["C1CCC(CC1)C(=O)OC(=O)C2CCCCC2", "FCCC(O)"],
+		"num_reactants": 2,
+		"RXN_NUM": 29
+	},
+	"30_Acid_Anhydride_and_Thiol": {
+		"reaction_name": "30_Acid_Anhydride_and_Thiol",
+		"reaction_string": "[*:1]C(=O)-O-C([*:3])=O.S[*:2]>>[*:1]C(=O)-S[*:2]",
+		"functional_groups": ["Acid_Anhydride", "Thiol_1R"],
+		"group_smarts": ["[*:1][#6](=O)-[#8]-[#6]([*:2])=O", "S[*:1]"],
+		"example_reactants": ["C1CCC(CC1)C(=O)OC(=O)C2CCCCC2", "O=C([O-])OC(=O)CC[S-]"],
+		"num_reactants": 2,
+		"RXN_NUM": 30
+	},
+	"31_Acid_Anhydride_To_Cyanide": {
+		"reaction_name": "31_Acid_Anhydride_To_Cyanide",
+		"reaction_string": "[*:1]C(=O)-O-C([*:2])=O>>[*:1]C(=O)C#N",
+		"functional_groups": ["Acid_Anhydride"],
+		"group_smarts": ["[*:1][#6](=O)-[#8]-[#6]([*:2])=O"],
+		"example_reactants": ["C1CCC(CC1)C(=O)OC(=O)C2CCCCC2"],
+		"num_reactants": 1,
+		"RXN_NUM": 31
+	},
+	"32_Acid_Anhydride_To_Azide": {
+		"reaction_name": "32_Acid_Anhydride_To_Azide",
+		"reaction_string": "[*:1]C(=O)-O-C([*:2])=O>>[*:1]C(=O)-N=[N+]=[N-]",
+		"functional_groups": ["Acid_Anhydride"],
+		"group_smarts": ["[*:1][#6](=O)-[#8]-[#6]([*:2])=O"],
+		"example_reactants": ["C1CCC(CC1)C(=O)OC(=O)C2CCCCC2"],
+		"num_reactants": 1,
+		"RXN_NUM": 32
+	},
+	"33_Isocyanate_and_Amine": {
+		"reaction_name": "33_Isocyanate_and_Amine",
+		"reaction_string": "[*:1]N=C=O.[*:2][NH1][*:3]>>[*:1]N-C(=O)-N([*:2])[*:3]",
+		"functional_groups": ["Isocyanate", "Amine_2R"],
+		"group_smarts": ["[*:1][#7]=C=O", "[*:2][NH1][*:1]"],
+		"example_reactants": ["O=C=NC(=O)Cl", "O=C1CNC(=O)O1"],
+		"num_reactants": 2,
+		"RXN_NUM": 33
+	},
+	"34_Isothiocyanate_and_Amine": {
+		"reaction_name": "34_Isothiocyanate_and_Amine",
+		"reaction_string": "[*:1]N=C=S.[*:2][NH1][*:3]>>[*:1]N-C(=S)-N([*:2])[*:3]",
+		"functional_groups": ["Isothiocyanate", "Amine_2R"],
+		"group_smarts": ["[*:1][#7]=C=S", "[*:2][NH1][*:1]"],
+		"example_reactants": ["O=C(Cl)CCN=C=S", "O=C1CNC(=O)O1"],
+		"num_reactants": 2,
+		"RXN_NUM": 34
+	},
+	"35_Isocyanate_and_Thiol": {
+		"reaction_name": "35_Isocyanate_and_Thiol",
+		"reaction_string": "[*:1]N=C=O.S[*:2]>>[*:1]N-C(=O)-S[*:2]",
+		"functional_groups": ["Isocyanate", "Thiol_1R"],
+		"group_smarts": ["[*:1][#7]=C=O", "S[*:1]"],
+		"example_reactants": ["O=C=NC(=O)Cl", "O=C([O-])OC(=O)CC[S-]"],
+		"num_reactants": 2,
+		"RXN_NUM": 35
+	},
+	"36_Isothiocyanate_and_Thiol": {
+		"reaction_name": "36_Isothiocyanate_and_Thiol",
+		"reaction_string": "[*:1]N=C=S.S[*:2]>>[*:1]N-C(=S)-S[*:2]",
+		"functional_groups": ["Isothiocyanate", "Thiol_1R"],
+		"group_smarts": ["[*:1][#7]=C=S", "S[*:1]"],
+		"example_reactants": ["O=C(Cl)CCN=C=S", "O=C([O-])OC(=O)CC[S-]"],
+		"num_reactants": 2,
+		"RXN_NUM": 36
+	},
+	"37_Isocyanate_and_Alcohol": {
+		"reaction_name": "37_Isocyanate_and_Alcohol",
+		"reaction_string": "[*:1]N=C=O.O=,-[*:2]>>[*:1]N-C(=O)-O[*:2]",
+		"functional_groups": ["Isocyanate", "Alcohol_1R"],
+		"group_smarts": ["[*:1][#7]=C=O", "O=,-[*:1]"],
+		"example_reactants": ["O=C=NC(=O)Cl", "FCCC(O)"],
+		"num_reactants": 2,
+		"RXN_NUM": 37
+	},
+	"38_Isothiocyanate_and_Alcohol": {
+		"reaction_name": "38_Isothiocyanate_and_Alcohol",
+		"reaction_string": "[*:1]N=C=S.O=,-[*:2]>>[*:1]N-C(=S)-O[*:2]",
+		"functional_groups": ["Isothiocyanate", "Alcohol_1R"],
+		"group_smarts": ["[*:1][#7]=C=S", "O=,-[*:1]"],
+		"example_reactants": ["O=C(Cl)CCN=C=S", "FCCC(O)"],
+		"num_reactants": 2,
+		"RXN_NUM": 38
+	}
+}
