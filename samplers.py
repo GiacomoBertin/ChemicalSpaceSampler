@@ -7,6 +7,8 @@ import numpy as np
 from sklearn.neighbors import NearestNeighbors
 from visualization import smi2fp
 from rdkit import DataStructs
+from torch.utils.data import DataLoader, Dataset
+import torch
 
 
 class Sampler(ABC, nn.Module):
@@ -88,3 +90,84 @@ class KNNSampler(Sampler, ABC):
         scores = np.array([smi.score if smi.score is not None else 0. for smi in self.chemical_space])
         self.best_ligand_id = scores.argmin()
         self.best_ligands_history.append(self.best_ligand_id)
+
+
+class GCNActiveLearning(Sampler):
+    def __init__(self,
+                 featurization: Featurization,
+                 net: nn.Module,
+                 criterion,
+                 epochs=100,
+                 lr=1e-3,
+                 batch_size=32,
+                 chkpt_path=None,
+                 save_every=50
+                 ):
+        super(GCNActiveLearning, self).__init__()
+        self.featurization = featurization
+        self.net = net
+        self.criterion = criterion
+        self.epochs = epochs
+        self.lr = lr
+        self.dataset = None
+        self.batch_size = batch_size
+        self.chkpt_path = chkpt_path
+        self.save_every = save_every
+
+    def load_chkpt(self, optimizer):
+        if self.chkpt_path is not None:
+            chkpt = torch.load(self.chkpt_path)
+            self.net.load_state_dict(chkpt['net'])
+            starting_epoch = chkpt['epoch']
+            optimizer.load_state_dict(chkpt['optimizer'])
+
+        else:
+            starting_epoch = 0
+
+        return starting_epoch
+
+    def save_chkpt(self, optimizer, epoch):
+        if self.chkpt_path is not None:
+            torch.save(self.chkpt_path, dict(
+                net=self.net.state_dict(),
+                epoch=epoch,
+                optimizer=optimizer.state_dict()
+            ))
+
+    def train_(self):
+        dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True)
+        optimizer = torch.optim.Adam(self.net.parameters(), lr=self.lr)
+        device = next(self.net.parameters()).device
+
+        starting_epoch = self.load_chkpt(optimizer)
+
+        for epoch in range(starting_epoch, self.epochs):
+
+            losses = []
+            for batch in dataloader:
+                optimizer.zero_grad()
+                batch = batch.to(device)
+
+                out = self.net(batch)
+                loss = self.criterion(out, batch)
+
+                loss.backward()
+
+                optimizer.step()
+                losses.append(loss.detach())
+
+            mean_loss = torch.cat(losses).mean().item()
+
+            if epoch % self.save_every == 0:
+                self.save_chkpt(optimizer, epoch)
+                print(f'[{epoch:>5d} / {self.epochs:>5d}] | loss: {mean_loss:1.3e}')
+
+    def predict_(self):
+        self.net.eval()
+        scores = [self.net(self.dataset[i]) for i in range(len(self.dataset))]
+        return scores
+
+
+
+
+

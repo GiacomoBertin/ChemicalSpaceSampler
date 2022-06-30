@@ -6,8 +6,6 @@ from Utility import *
 from numpy import random
 import multiprocessing
 from torch import optim
-from VAE.featurizer import *
-from VAE.models import *
 import torch.utils.data
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler

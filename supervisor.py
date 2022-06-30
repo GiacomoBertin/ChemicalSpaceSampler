@@ -1,5 +1,4 @@
 import threading as thread
-from FAT import *
 from autogrow.Operators.Filter.Filter_classes.FilterClasses.Ghose import *
 from reactor import *
 from multiprocessing import Process, Manager
@@ -14,6 +13,11 @@ from copy import deepcopy
 from Utility import LigandInfo
 from typing import Dict, List
 from logger import Logger
+import numpy as np
+from score import Score
+from rdkit import DataStructs
+from rdkit.ML.Cluster import Butina
+from torch.utils.data import Dataset, DataLoader
 
 
 class Watchdog:
@@ -92,8 +96,21 @@ class Watchdog:
 
 
 class DrugDiscoverySupervisor:
-    def __init__(self, starting_smiles, working_directory, protein_pdb, log_file, sampler, score: Score, n_child=1000, n_threads=1, domain_selection=None,
-                 n_max_parallel_process=10, lag_iterations=5, best_n_ligands=10, run_id=0):
+    def __init__(self,
+                 starting_smiles,
+                 working_directory,
+                 protein_pdb,
+                 log_file,
+                 sampler,
+                 score: Score,
+                 n_child=1000,
+                 n_threads=1,
+                 domain_selection=None,
+                 n_max_parallel_process=10,
+                 lag_iterations=5,
+                 best_n_ligands=10,
+                 run_id=0
+                 ):
         """
         An algorithm for drug discovery.
 
@@ -195,7 +212,6 @@ class DrugDiscoverySupervisor:
             for i in range(n_child):
                 child_info = smileClick.run_Smile_Click(parent.smiles)
                 if child_info is not None and self.validate_product(child_info[0]):
-
                     childes.append(child_info)
                     smileClick.update_list_of_already_made_smiles(childes)
                     ligand = LigandInfo(smiles=child_info[0],
@@ -203,11 +219,11 @@ class DrugDiscoverySupervisor:
                                         compound_id=len(self.chemical_space),
                                         run_id=-1,
                                         chemical_reaction=dict(
-                                                              parent_smiles=parent.smiles,
-                                                              parent_id=parent.compound_id,
-                                                              reaction=child_info[1],
-                                                              zinc_id=child_info[2]
-                                                          )
+                                            parent_smiles=parent.smiles,
+                                            parent_id=parent.compound_id,
+                                            reaction=child_info[1],
+                                            zinc_id=child_info[2]
+                                        )
                                         )
                     self.chemical_space.append(ligand)
                     generation.append(ligand)
@@ -224,17 +240,17 @@ class DrugDiscoverySupervisor:
 
         mol_prot = AllChem.AddHs(mol)
         filter_res = filter.run_filter(mol_prot)
-        ohf = OneHotFeaturizer()
+        # ohf = OneHotFeaturizer()
         if not filter_res:
             print("Molecule does not pass Goose test")
             return False
         smiles_prot = AllChem.MolToSmiles(mol_prot)
         smile = AllChem.MolToSmiles(AllChem.RemoveHs(mol))
-        try:
-            ohf.featurize([smile.ljust(120)])
-        except e:
-            print("Molecule failed featurization test")
-            return False
+        # try:
+        #     ohf.featurize([smile.ljust(120)])
+        # except:
+        #     print("Molecule failed featurization test")
+        #    return False
 
         if already_computed_mol_protonated is not None:
             for s in already_computed_mol_protonated:
@@ -272,9 +288,24 @@ class DrugDiscoverySupervisor:
 
         return return_list
 
-    def mp_samplers_adjourns(self):
+    def mp_samplers_adjourns(self, keep_separate_runs=True):
         if len(self.sub_samplers) > 1:
-            processes = [mp.Process(target=self.sub_samplers[i].closing_step, args=(self.chemical_space, )) for i in range(len(self.sub_samplers))]
+            if not keep_separate_runs:
+                processes = [mp.Process(target=self.sub_samplers[i].closing_step,
+                                        args=(self.chemical_space,))
+                             for i in range(len(self.sub_samplers))]
+            else:
+                processes = [mp.Process(target=self.sub_samplers[i].closing_step,
+                                        args=([
+                                                  LigandInfo(smiles=lig.smiles,
+                                                             compound_id=lig.compound_id,
+                                                             run_id=lig.run_id,
+                                                             chemical_reaction=lig.chemical_reaction,
+                                                             score=lig.score if lig.run_id == i or lig.run_id < 0 else None)
+                                                  for lig in self.chemical_space], )
+                                        )
+                             for i in range(len(self.sub_samplers))]
+
             for p in processes:
                 p.start()
 
@@ -318,21 +349,28 @@ class DrugDiscoverySupervisor:
             if global_step % self.lag_iterations == 0:
                 self.new_generation([self.chemical_space[t] for t in self.best_drugs], self.n_child, global_step)
 
+    def run_sampling_test(self, n_iterations: int, smiles: List[str], dg: List[float]):
+        assert len(smiles) == len(dg)
+        self.chemical_space = [LigandInfo(smiles=smiles[i],
+                                          compound_id=i,
+                                          run_id=-1,
+                                          chemical_reaction=None,
+                                          score=None)
+                               for i in range(len(smiles))
+                               ]
 
+        # Initialize the samplers
+        self.sub_samplers = [deepcopy(self.sampler).initialize(self.chemical_space, i) for i in range(self.n_parallel_processes)]
 
+        for global_step in range(n_iterations):
+            sampled_ligands = self.mp_samplers_step(global_step)
 
+            scores = [dg[sampled_ligands[i].compound_id] for i in range(len(sampled_ligands))]
+            computed_smiles = [sampled_ligands[i].smiles for i in range(len(sampled_ligands))]
 
+            self.logger.compute_step(computed_smiles, scores, global_step)
 
+            for ligand, score in zip(computed_smiles, scores):
+                self.chemical_space[ligand.compound_id].score = score
 
-
-
-
-
-
-
-
-
-
-
-
-
+            self.mp_samplers_adjourns(keep_separate_runs=False)

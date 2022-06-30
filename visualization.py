@@ -1,8 +1,9 @@
 import base64
+import copy
 import textwrap
 from io import BytesIO
 from typing import Callable, Union, List, Dict, Tuple
-
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -22,6 +23,12 @@ from sklearn import manifold
 import redis
 from Utility import LigandInfo
 import plotly.graph_objects as go
+import os.path as osp
+import dash_bio as dashbio
+import dash_bio.utils.ngl_parser as ngl_parser
+from dash_bio.utils import PdbParser
+from dash_bio.utils.mol3dviewer_styles_creator import ATOM_COLORS, CHAIN_COLORS, RESIDUE_COLORS, RESIDUE_TYPE_COLORS, AMINO_ACID_CLASSES
+from prody import parsePDBHeader
 
 
 def str2bool(v: str) -> bool:
@@ -82,9 +89,8 @@ def test_groups(fig: Figure, df_grouped: DataFrameGroupBy):
 
 
 def find_grouping(
-    fig: Figure, df_data: pd.DataFrame, cols: List[str]
+        fig: Figure, df_data: pd.DataFrame, cols: List[str]
 ) -> Tuple[DataFrameGroupBy, dict]:
-
     if len(cols) == 1:
         df_grouped = df_data.groupby(cols)
         if not test_groups(fig, df_grouped):
@@ -121,24 +127,24 @@ def find_grouping(
 
 
 def add_molecules(
-    fig: Figure,
-    df: pd.DataFrame,
-    smiles_col: Union[str, List[str]] = "SMILES",
-    show_img: bool = True,
-    svg_size: int = 200,
-    alpha: float = 0.75,
-    mol_alpha: float = 0.7,
-    title_col: str = None,
-    show_coords: bool = True,
-    caption_cols: List[str] = None,
-    caption_transform: Dict[str, Callable] = {},
-    color_col: str = None,
-    marker_col: str = None,
-    wrap: bool = True,
-    wraplen: int = 20,
-    width: int = 150,
-    fontfamily: str = "Arial",
-    fontsize: int = 12,
+        fig: Figure,
+        df: pd.DataFrame,
+        smiles_col: Union[str, List[str]] = "SMILES",
+        show_img: bool = True,
+        svg_size: int = 200,
+        alpha: float = 0.75,
+        mol_alpha: float = 0.7,
+        title_col: str = None,
+        show_coords: bool = True,
+        caption_cols: List[str] = None,
+        caption_transform: Dict[str, Callable] = {},
+        color_col: str = None,
+        marker_col: str = None,
+        wrap: bool = True,
+        wraplen: int = 20,
+        width: int = 150,
+        fontfamily: str = "Arial",
+        fontsize: int = 12,
 ) -> JupyterDash:
     """
     A function that takes a plotly figure and a dataframe with molecular SMILES
@@ -232,7 +238,9 @@ def add_molecules(
             ),
         ]
     )
-
+    app.layout = html.Div(
+        [], style={'display': 'flex', 'flex-direction': 'row'}
+    )
 
     @app.callback(
         output=[
@@ -499,7 +507,7 @@ def online_chemical_space(components_mode='pca', color_values=None, label='', ru
                          width=1200,
                          height=800)
 
-    #fig_pca.add_trace(go.Scatter(x=df_esol['PCA-1'], y=df_esol['PCA-2'],
+    # fig_pca.add_trace(go.Scatter(x=df_esol['PCA-1'], y=df_esol['PCA-2'],
     #                             mode='lines',
     #                             name='trajectory'))
 
@@ -518,12 +526,283 @@ def visualize_3d_mol(mol: Union[str, AllChem.Mol]):
     mol = Chem.AddHs(mol)
     AllChem.EmbedMolecule(mol)
     mblock = Chem.MolToMolBlock(mol)
-    xyzview = py3Dmol.view()#(width=400,height=400)
-    xyzview.addModel(mblock,'mol')
+    xyzview = py3Dmol.view()  # (width=400,height=400)
+    xyzview.addModel(mblock, 'mol')
     xyzview.setStyle({'stick': {}})
     xyzview.setBackgroundColor('white')
     xyzview.zoomTo()
     return xyzview
 
 
+def create_mol3d_style(
+        atoms_list: List[List[dict]],
+        visualization_type: List[str] = None,
+        color_elements: List[str] = None,
+        color_scheme=None,
+        default_c=None
+):
+    """Function to create styles input for Molecule3dViewer
 
+    @param atoms_list
+    A list of atoms. Each atom should be a dict with keys: 'name', 'residue_name', 'chain'
+    @param visualization_type
+    A type of molecule visualization graphic: 'stick' | 'cartoon' | 'sphere'.
+    @param color_elements
+    Elements to apply color scheme to: 'atom' | 'residue' | 'residue_type' | 'chain'.
+    @param color_scheme
+    Color scheme used to style moleule elements.
+    This should be a dict with keys being names of atoms, residues, residue types or chains,
+    depending on the value of color_element argument. If no value is provided, default color
+    schemes will be used.
+    @param default_c
+    """
+
+    if default_c is None:
+        default_c = ["#f00000"] * len(atoms_list)
+    if visualization_type is None:
+        visualization_type = ["stick"] * len(atoms_list)
+    if color_elements is None:
+        color_elements = ["atom"] * len(atoms_list)
+
+    atom_styles = []
+
+    for i, atoms in enumerate(atoms_list):
+        if visualization_type[i] not in ['stick', 'cartoon', 'sphere']:
+            raise Exception("Invalid argument type: visualization_type.\
+        Should be: 'stick' | 'cartoon' | 'sphere'.")
+
+        if color_elements[i] not in ['atom', 'residue', 'residue_type', 'chain']:
+            raise Exception("Invalid argument type: color_element.\
+        Should be: 'atom' | 'residue' | 'residue_type' | 'chain'.")
+
+        if not isinstance(atoms_list[0], list):
+            raise Exception("Invalid argument type: atoms. Should be a list of dict.")
+
+        if color_scheme and not isinstance(color_scheme, dict):
+            raise Exception("Invalid argument type: color_scheme. Should be a dict.")
+
+        default_color = '#ABABAB'
+        color_element = color_elements[i]
+
+        if color_scheme is None:
+            color_scheme = {
+                'atom': ATOM_COLORS,
+                'residue': RESIDUE_COLORS,
+                'residue_type': RESIDUE_TYPE_COLORS,
+                'chain': CHAIN_COLORS
+            }[color_element]
+
+        if color_element == 'residue_type':
+            residue_type_colors_map = {}
+            for aa_class_name, aa_class_members in AMINO_ACID_CLASSES.items():
+                for aa in aa_class_members:
+                    residue_type_colors_map[aa] = color_scheme.get(aa_class_name, default_color)
+            color_scheme = residue_type_colors_map
+
+        for a in atoms:
+            if color_element == 'atom':
+                atom_color = color_scheme.get(a['name'], default_color)
+            if color_element in ['residue', 'residue_type']:
+                atom_color = color_scheme.get(a['residue_name'], default_color)
+            if color_element == 'chain':
+                atom_color = color_scheme.get(a['chain'], default_color)
+
+            atom_styles.append({
+                'visualization_type': visualization_type[i],
+                'color': atom_color if default_c[i] is None else default_c[i]
+            })
+
+    return atom_styles
+
+
+def visualize_3d_complex(ligand_pdb, protein_pdb, range_within=None,
+                         protein_rep='cartoon',
+                         ligand_rep='stick',
+                         pocket_rep='stick',
+                         protein_color_scheme='residue',
+                         range_color_scheme='residue'):
+    from prody import parsePDB, writePDB, calcCenter
+
+    def merge_datas(data_a, data_b):
+        result = copy.deepcopy(data_a)
+        max_residue = np.max([data_a['atoms'][i]['residue_index'] for i in range(len(data_a['atoms']))]) + 1
+        max_atom_id = np.max([data_a['atoms'][i]['serial'] for i in range(len(data_a['atoms']))]) + 1
+        for atom in data_b['atoms']:
+            new_data = copy.deepcopy(atom)
+            new_data['residue_index'] += max_residue
+            new_data['serial'] += max_atom_id
+            result['atoms'].append(new_data)
+
+        for atom in data_b['bonds']:
+            new_data = copy.deepcopy(atom)
+            new_data['atom1_index'] += max_atom_id
+            new_data['atom2_index'] += max_atom_id
+            result['bonds'].append(new_data)
+
+        return result
+
+    def select_pdb(pdb_file, selection_string, name='temp.pdb'):
+        pdb = parsePDB(pdb_file).select(selection_string)
+        writePDB(osp.join('./tmp', name), pdb)
+        return osp.join('./tmp', name)
+
+    def select_binding_pocket(range_selection, name='temp.pdb'):
+        pdb_ligand = parsePDB(ligand_pdb)
+        center = calcCenter(pdb_ligand)
+        selection_string = f'same residue as (within {range_selection} of center) and noh'
+        pdb = parsePDB(protein_pdb).select(selection_string, center=center)
+        writePDB(osp.join('./tmp', name), pdb)
+        return osp.join('./tmp', name)
+
+    def read_remark(file_path):
+        res = ''
+        with open(file_path, 'r') as file:
+            for line in file:
+                if line.startswith('REMARK'):
+                    res += line + '\n'
+
+        return res
+
+    protein_parser = PdbParser(select_pdb(protein_pdb, 'protein and noh', name='protein.pdb'))
+    ligand_parser = PdbParser(select_pdb(ligand_pdb, 'not protein and noh', name='ligand.pdb'))
+    if range_within is not None:
+        poket_parser = PdbParser(select_binding_pocket(range_within, name='poket.pdb'))
+        data_poket = poket_parser.mol3d_data()
+    else:
+        poket_parser = None
+        data_poket = None
+
+    data_protein = protein_parser.mol3d_data()
+    data_ligand = ligand_parser.mol3d_data()
+
+    data = merge_datas(data_protein, data_ligand)
+    if data_poket is not None:
+        data = merge_datas(data, data_poket)
+
+    style = create_mol3d_style([data_protein['atoms'], data_ligand['atoms'], data_poket['atoms']] if data_poket is not None else
+                               [data_protein['atoms'], data_ligand['atoms']],
+                               [protein_rep, ligand_rep, pocket_rep],
+                               color_elements=[protein_color_scheme, 'atom', range_color_scheme],
+                               default_c=[None, None, None])
+
+    return data, style, data_protein, data_ligand, data_poket, read_remark(ligand_pdb)
+
+
+def visualize_3d_complex_app(ligand_pdb, protein_pdb, range_within=None):
+    app = JupyterDash(__name__)
+    data, style, data_protein, data_ligand, data_poket, head = visualize_3d_complex(ligand_pdb, protein_pdb, range_within)
+
+    app.layout = html.Div([
+        html.Div([
+            dashbio.Molecule3dViewer(
+                id='dashbio-default-molecule3d',
+                modelData=data,
+                styles=style
+            ),
+
+        ], style={'padding': 10, 'flex': 1}),
+        html.Div([
+
+            dcc.Dropdown(
+                id="dashbio-protein_color_scheme",
+                value='residue',
+                searchable=False,
+                placeholder="Protein color scheme",
+                options=[{"label": s.replace('_', ' ').capitalize(), "value": s} for s in ["residue", "atom", "residue_type", "chain"]]
+            ),
+            html.Hr(),
+            dcc.Dropdown(
+                id="dashbio-protein_rep",
+                value='cartoon',
+                searchable=False,
+                placeholder="Protein Style",
+                # style={'color': 'gray', 'background': 'gray'},
+                options=[{"label": s.replace('_', ' ').capitalize(), "value": s} for s in ['stick', 'cartoon', 'sphere']]
+            ),
+
+            dcc.Dropdown(
+                id="dashbio-ligand_rep",
+                value='stick',
+                searchable=False,
+                placeholder="Ligand Style",
+                options=[{"label": s.replace('_', ' ').capitalize(), "value": s} for s in ['stick', 'cartoon', 'sphere']]
+            ),
+
+            dcc.Dropdown(
+                id="dashbio-pocket_rep",
+                value='stick',
+                searchable=False,
+                placeholder="Pocket Style",
+                options=[{"label": s.replace('_', ' ').capitalize(), "value": s} for s in ['stick', 'cartoon', 'sphere']]
+            ),
+            html.Hr(),
+            dcc.Slider(
+                id="zoomfactor-slider",
+                min=0.4,
+                max=2.0,
+                step=None,
+                marks={0.4: "0.4", 0.8: "0.8", 1.2: "1.2", 1.6: "1.6", 2.0: "2.0"},
+                value=0.8,
+            ),
+            dcc.Slider(
+                id="range-slider",
+                min=0,
+                max=15,
+                step=1,
+                marks={i: str(i) for i in range(0, 16, 5)},
+                value=10,
+            ),
+            html.Hr(),
+            dcc.Markdown(head, style={'color': '#b4b4b4'}),
+            html.Hr(),
+            dcc.Markdown("Selection data", style={'color': '#b4b4b4'}),
+            html.Hr(),
+            html.Div(id='default-molecule3d-output')
+
+        ], style={'padding': 10, 'flex': 1})
+    ], style={'display': 'flex', 'flex-direction': 'row'})
+
+    @app.callback(
+        Output('default-molecule3d-output', 'children'),
+        Output("dashbio-default-molecule3d", "zoom"),
+        Output('dashbio-default-molecule3d', 'modelData'),
+        Output('dashbio-default-molecule3d', 'styles'),
+        Input('dashbio-default-molecule3d', 'selectedAtomIds'),
+        Input("dashbio-protein_color_scheme", "value"),
+        Input("dashbio-protein_rep", "value"),
+        Input("dashbio-ligand_rep", "value"),
+        Input("dashbio-pocket_rep", "value"),
+        Input("zoomfactor-slider", "value"),
+        Input("range-slider", "value"),
+    )
+    def show_selected_atoms(atom_ids,
+                            protein_color_scheme,
+                            protein_rep,
+                            ligand_rep,
+                            pocket_rep,
+                            slider,
+                            range_w
+                            ):
+        if range_w == 0:
+            range_w = None
+        data, style, data_protein, data_ligand, data_poket, _ = visualize_3d_complex(ligand_pdb, protein_pdb, range_w)
+
+        style = create_mol3d_style([data_protein['atoms'], data_ligand['atoms'], data_poket['atoms']] if data_poket is not None else
+                                   [data_protein['atoms'], data_ligand['atoms']],
+                                   [protein_rep, ligand_rep, pocket_rep],
+                                   color_elements=[protein_color_scheme, 'atom', protein_color_scheme],
+                                   default_c=[None, None, None])
+
+        if atom_ids is None or len(atom_ids) == 0:
+            layout = 'No atom has been selected. Click somewhere on the molecular \
+            structure to select an atom.'
+        else:
+            layout = [html.Div([
+                dcc.Markdown('Element: {}, '.format(data['atoms'][atm]['elem']) +
+                             'Chain: {}, '.format(data['atoms'][atm]['chain']) +
+                             'Residue name: {} '.format(data['atoms'][atm]['residue_name']), style={'color': '#b4b4b4'}),
+            ]) for atm in atom_ids]
+
+        return layout, {"factor": slider, "animationDuration": 10, "fixedPath": False}, data, style
+
+    return app

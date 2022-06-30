@@ -6,6 +6,7 @@ import numpy as np
 from Utility import LigandInfo
 from sklearn.decomposition import PCA
 from rdkit import DataStructs
+import deepchem as dc
 
 
 class Featurization(ABC):
@@ -77,8 +78,30 @@ class FingerprintFeaturization(Featurization):
         return fps
 
 
+class GraphFeaturization(Featurization):
+    def __init__(self,
+                 use_edges: bool = False,
+                 use_chirality: bool = False,
+                 use_partial_charge: bool = False):
+        super(GraphFeaturization, self).__init__()
+        self.featurizer = dc.feat.MolGraphConvFeaturizer(
+            use_edges=use_edges,
+            use_chirality=use_chirality,
+            use_partial_charge=use_partial_charge
+        )
 
+    def initialize(self, chemical_space: List[LigandInfo]):
+        pass
 
+    def adjourn(self, chemical_space: List[LigandInfo]):
+        pass
 
+    def compute_distances(self, X, Y):
+        return None
 
+    def to_data(self, X):
+        pass
 
+    def __call__(self, smiles_list: List[str]):
+        fps = self.featurizer.featurize(smiles_list)
+        return fps
