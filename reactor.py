@@ -554,7 +554,7 @@ class Reactor(object):
                 try:
                     # if reaction works keep it
                     reaction_product = rxn.RunReactants((mol_to_use,))[0][0]
-                    if reaction_product is ():
+                    if reaction_product == ():
                         # if reaction fails then lets move on to the next reaction
                         tries = tries + 1
                     else:
@@ -663,7 +663,7 @@ class Reactor(object):
                     tries = tries + 1
                     continue
 
-                if reaction_product is () or reaction_product is None:
+                if reaction_product == () or reaction_product is None:
                     reaction_id_number = a_reaction_dict['RXN_NUM']
                     tries = tries + 1
                     continue
@@ -885,7 +885,7 @@ class Reactor(object):
                 tries = tries + 1
                 continue
 
-            if reaction_product is () or reaction_product is None:
+            if reaction_product == () or reaction_product is None:
                 reaction_id_number = a_reaction_dict['RXN_NUM']
                 tries = tries + 1
                 continue

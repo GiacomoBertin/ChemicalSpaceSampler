@@ -18,7 +18,6 @@ from rdkit.Chem import Draw
 from rdkit.Chem.Draw import rdDepictor
 from rdkit.Chem.Draw import rdMolDraw2D
 from sklearn.decomposition import PCA
-from stmol import showmol
 from sklearn import manifold
 import redis
 from Utility import LigandInfo
@@ -29,6 +28,9 @@ import dash_bio.utils.ngl_parser as ngl_parser
 from dash_bio.utils import PdbParser
 from dash_bio.utils.mol3dviewer_styles_creator import ATOM_COLORS, CHAIN_COLORS, RESIDUE_COLORS, RESIDUE_TYPE_COLORS, AMINO_ACID_CLASSES
 from prody import parsePDBHeader
+import json
+import plotly
+import dash
 
 
 def str2bool(v: str) -> bool:
@@ -613,6 +615,57 @@ def create_mol3d_style(
             })
 
     return atom_styles
+
+
+def plot_dg(run_id=0):
+    r = redis.Redis(db=run_id)
+    current_step = r.get('computed_step')
+    computed_steps_ids = json.loads(r.get('computed_steps_ids'))
+    chemical_space = {}
+    for k in r.keys():
+        if k != 'computed_step' and k != 'computed_steps_ids':
+            lig = json.loads(r.get(k))
+            if isinstance(lig, dict):
+                chemical_space[lig['compound_id']] = lig
+
+    steps = []
+    min_dg = []
+    min_smiles = []
+    min_ids = []
+    all_mols = []
+    for i in range(len(computed_steps_ids)):
+        steps.append(float(i))
+        mols = [chemical_space[k] for k in computed_steps_ids[i]]
+        all_mols += mols
+        min_id = np.argmin([mol['score'] for mol in all_mols])
+        min_dg.append(float(all_mols[min_id]['score']))
+        min_ids.append(all_mols[min_id]['compound_id'])
+        min_smiles.append(all_mols[min_id]['smiles'])
+
+    df = pd.DataFrame({'x': steps, 'y': min_dg, 'smiles': min_smiles, 'id': min_ids})
+    print(df)
+    fig = px.line(data_frame=df, x='x', y='y', hover_name='id', hover_data=["smiles"], markers=True)
+    return fig
+
+
+def visualize_sampler_run(run_id=0):
+    app = JupyterDash(__name__)
+    app.layout = html.Div([
+        html.H4(f'visualization progresses run: {run_id}'),
+        dcc.Graph(id="graph"),
+        dcc.Interval(
+            id='interval-component',
+            interval=1 * 1000,  # in milliseconds
+            n_intervals=0
+        )
+    ])
+
+    @app.callback(Output('graph', 'figure'),
+                  Input('interval-component', 'n_intervals'))
+    def update_metrics(n):
+        return plot_dg(run_id)
+
+    return app
 
 
 def visualize_3d_complex(ligand_pdb, protein_pdb, range_within=None,

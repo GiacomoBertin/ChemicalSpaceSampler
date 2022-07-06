@@ -1,14 +1,16 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Tuple
 from Utility import LigandInfo
 import torch.nn as nn
-from featurization import Featurization
+from featurization import Featurization, MolDataset
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
 from visualization import smi2fp
 from rdkit import DataStructs
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import Dataset
 import torch
+from tqdm import trange, tqdm
+from torch_geometric.loader import DataLoader
 
 
 class Sampler(ABC, nn.Module):
@@ -76,11 +78,12 @@ class KNNSampler(Sampler, ABC):
         return self
 
     def step(self, i, return_dict: dict) -> List[LigandInfo]:
-        smiles = [smi.smiles for smi in self.chemical_space if smi.compound_id not in self.proposed_ids]
-        sim = self.featurization.compute_distances([smiles[self.best_ligand_id]], smiles)
-        idx = np.argsort(sim)[0, :self.k]
-        return_dict[self.sampler_id] = [self.chemical_space[i] for i in idx]
-        self.proposed_ids += list(idx)
+        ligs = [smi for smi in self.chemical_space if smi.compound_id not in self.proposed_ids]
+        smiles = [smi.smiles for smi in ligs]
+        sim = self.featurization.compute_distances(self.chemical_space[self.best_ligand_id].smiles, smiles)
+        idx = np.argsort(sim)[1:self.k+1]
+        return_dict[self.sampler_id] = [ligs[i] for i in idx]
+        self.proposed_ids += [ligs[i].compound_id for i in idx]
         self.proposed_id_history.append(idx)
         return [self.chemical_space[i] for i in idx]
 
@@ -97,6 +100,7 @@ class GCNActiveLearning(Sampler):
                  featurization: Featurization,
                  net: nn.Module,
                  criterion,
+                 best_n: int = 10,
                  epochs=100,
                  lr=1e-3,
                  batch_size=32,
@@ -105,14 +109,16 @@ class GCNActiveLearning(Sampler):
                  ):
         super(GCNActiveLearning, self).__init__()
         self.featurization = featurization
+        self.proposed_ids = []
         self.net = net
         self.criterion = criterion
         self.epochs = epochs
         self.lr = lr
-        self.dataset = None
+        self.dataset: MolDataset = None
         self.batch_size = batch_size
         self.chkpt_path = chkpt_path
         self.save_every = save_every
+        self.best_n = best_n
 
     def load_chkpt(self, optimizer):
         if self.chkpt_path is not None:
@@ -135,39 +141,65 @@ class GCNActiveLearning(Sampler):
             ))
 
     def train_(self):
-        dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True)
+        dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True, drop_last=True)
         optimizer = torch.optim.Adam(self.net.parameters(), lr=self.lr)
         device = next(self.net.parameters()).device
 
         starting_epoch = self.load_chkpt(optimizer)
-
-        for epoch in range(starting_epoch, self.epochs):
+        pbar = trange(starting_epoch, self.epochs, desc='iteration')
+        self.net = self.net.train().to(device)
+        for epoch in pbar:
 
             losses = []
             for batch in dataloader:
                 optimizer.zero_grad()
-                batch = batch.to(device)
 
-                out = self.net(batch)
-                loss = self.criterion(out, batch)
+                out = self.net(batch['x'].to(device))
+                loss = self.criterion(out, batch['y'][:, None].to(device))
 
                 loss.backward()
 
                 optimizer.step()
-                losses.append(loss.detach())
+                losses.append(loss.detach().item())
 
-            mean_loss = torch.cat(losses).mean().item()
+            mean_loss = np.mean(losses)
+            pbar.set_description(f'loss: {mean_loss:.2f} ')
 
             if epoch % self.save_every == 0:
                 self.save_chkpt(optimizer, epoch)
-                print(f'[{epoch:>5d} / {self.epochs:>5d}] | loss: {mean_loss:1.3e}')
+                # print(f'[{epoch:>5d} / {self.epochs:>5d}] | loss: {mean_loss:1.3e}')
 
+    @property
+    def device(self):
+        return next(self.net.parameters()).device
+
+    @torch.no_grad()
     def predict_(self):
         self.net.eval()
-        scores = [self.net(self.dataset[i]) for i in range(len(self.dataset))]
+        scores: List[Tuple[float, LigandInfo]] = [(self.net(self.dataset.features[i].to(self.device)).item(), self.chemical_space[i]) for i in range(len(self.dataset.features))]
         return scores
 
+    def initialize(self, chemical_space: List[LigandInfo], sampler_id):
+        self.featurization.initialize(chemical_space)
+        self.sampler_id = sampler_id
+        self.chemical_space = chemical_space
+        self.dataset = MolDataset(self.chemical_space, self.featurization)
+        return self
 
+    def step(self, i, return_dict: dict) -> List[LigandInfo]:
+        res = self.predict_()
+        scores = [r[0] for r in res]
+        idx = np.argsort(scores)[:self.best_n]
+        idx = [res[i][1].compound_id for i in idx]
+        return_dict[self.sampler_id] = [self.chemical_space[i] for i in idx]
+        self.proposed_ids += idx
+        return [self.chemical_space[i] for i in idx]
+
+    def closing_step(self, chemical_space: List[LigandInfo]):
+        self.featurization.adjourn(chemical_space)
+        self.chemical_space = chemical_space
+        self.dataset.set_chemical_space(self.chemical_space)
+        self.train_()
 
 
 

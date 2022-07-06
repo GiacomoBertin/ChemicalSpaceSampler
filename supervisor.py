@@ -368,9 +368,9 @@ class DrugDiscoverySupervisor:
             scores = [dg[sampled_ligands[i].compound_id] for i in range(len(sampled_ligands))]
             computed_smiles = [sampled_ligands[i].smiles for i in range(len(sampled_ligands))]
 
-            self.logger.compute_step(computed_smiles, scores, global_step)
+            self.logger.compute_step(sampled_ligands, scores, global_step)
 
-            for ligand, score in zip(computed_smiles, scores):
+            for ligand, score in zip(sampled_ligands, scores):
                 self.chemical_space[ligand.compound_id].score = score
 
             self.mp_samplers_adjourns(keep_separate_runs=False)
