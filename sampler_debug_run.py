@@ -12,7 +12,7 @@ featurization = GraphFeaturization(
     graph_lib='pyg'
 )
 
-featurization = FingerprintFeaturization()
+# featurization = FingerprintFeaturization()
 
 test = 'COc1ccc2[nH]cc(CCN(C(C)=O)C(=S)NC(C)c3ccc4c(c3)CCC4)c2c1'
 out = featurization(test)
@@ -46,7 +46,7 @@ sampler = GCNActiveLearning(
     save_every=50
 ).cuda()
 
-sampler = KNNSampler(k=6, featurization=featurization, sampler_id=0)
+# sampler = KNNSampler(k=6, featurization=featurization, sampler_id=0)
 
 supervisor = DrugDiscoverySupervisor(
     starting_smiles=[],

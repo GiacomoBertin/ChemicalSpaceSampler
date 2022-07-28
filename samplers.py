@@ -119,6 +119,7 @@ class GCNActiveLearning(Sampler):
         self.chkpt_path = chkpt_path
         self.save_every = save_every
         self.best_n = best_n
+        self.optimizer = None
 
     def load_chkpt(self, optimizer):
         if self.chkpt_path is not None:
@@ -142,31 +143,31 @@ class GCNActiveLearning(Sampler):
 
     def train_(self):
         dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True, drop_last=True)
-        optimizer = torch.optim.Adam(self.net.parameters(), lr=self.lr)
+        self.optimizer = torch.optim.Adam(self.net.parameters(), lr=self.lr)
         device = next(self.net.parameters()).device
 
-        starting_epoch = self.load_chkpt(optimizer)
+        starting_epoch = self.load_chkpt(self.optimizer)
         pbar = trange(starting_epoch, self.epochs, desc='iteration')
         self.net = self.net.train().to(device)
         for epoch in pbar:
 
             losses = []
             for batch in dataloader:
-                optimizer.zero_grad()
+                self.optimizer.zero_grad()
 
                 out = self.net(batch['x'].to(device))
                 loss = self.criterion(out, batch['y'][:, None].to(device))
 
                 loss.backward()
 
-                optimizer.step()
+                self.optimizer.step()
                 losses.append(loss.detach().item())
 
             mean_loss = np.mean(losses)
             pbar.set_description(f'loss: {mean_loss:.2f} ')
 
             if epoch % self.save_every == 0:
-                self.save_chkpt(optimizer, epoch)
+                self.save_chkpt(self.optimizer, epoch)
                 # print(f'[{epoch:>5d} / {self.epochs:>5d}] | loss: {mean_loss:1.3e}')
 
     @property

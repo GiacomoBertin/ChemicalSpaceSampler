@@ -50,7 +50,7 @@ class Logger:
         self.computed_steps_ids.clear()
         self.generated_steps_ids.clear()
 
-        self.r.flushall()
+        self.r.flushdb()
         self.r.set('computed_step', 0)
         self.r.set('generate_step', 0)
 
