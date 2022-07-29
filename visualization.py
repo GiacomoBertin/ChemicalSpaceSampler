@@ -31,6 +31,7 @@ from prody import parsePDBHeader
 import json
 import plotly
 import dash
+from dash import Dash, dcc, html
 
 
 def str2bool(v: str) -> bool:
@@ -239,9 +240,6 @@ def add_molecules(
                 id="graph-tooltip", background_color=f"rgba(255,255,255,{alpha})"
             ),
         ]
-    )
-    app.layout = html.Div(
-        [], style={'display': 'flex', 'flex-direction': 'row'}
     )
 
     @app.callback(
@@ -859,3 +857,56 @@ def visualize_3d_complex_app(ligand_pdb, protein_pdb, range_within=None):
         return layout, {"factor": slider, "animationDuration": 10, "fixedPath": False}, data, style
 
     return app
+
+
+def run_main_visualization_app():
+    external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+    app = Dash(__name__, external_stylesheets=external_stylesheets)
+    alpha = 0.7
+    app.layout = html.Div([
+        html.H1('Drug Discovery Supervisor'),
+        dcc.Interval(
+            id='interval-component',
+            interval=1 * 1000,  # in milliseconds
+            n_intervals=0
+        ),
+        dcc.Tabs(id="tabs-system", value='tab-1', children=[
+            dcc.Tab(label='Chemical Space',
+                    value='tab-chemical-space',
+                    children=html.Div(className='control-tab',
+                                      children=[
+                                          dcc.Store(id="smiles-menu", data=0),
+                                          dcc.Graph(id="graph-basic-2", clear_on_unhover=True),
+                                          dcc.Tooltip(
+                                              id="graph-tooltip", background_color=f"rgba(255,255,255,{alpha})"
+                                          ),
+                                      ]
+                                      )
+                    ),
+            dcc.Tab(label='Optimization Progresses',
+                    value='tab-optimization',
+                    children=html.Div(className='control-tab',
+                                      children=[
+                                          dcc.Graph(id="graph_min_dg"),
+                                      ]
+                                      )
+                    ),
+            dcc.Tab(label='Docking Visualization',
+                    value='tab-docking-visualization',
+                    children=html.Div(className='control-tab',
+                                      children=[
+                                          dcc.Graph(id="graph_min_dg"),
+                                      ]
+                                      )
+                    ),
+            dcc.Tab(label='Run Initialization',
+                    value='tab-run-initialization',
+                    children=html.Div(className='control-tab',
+                                      children=[
+                                          dcc.Graph(id="graph_min_dg"),
+                                      ]
+                                      )
+                    ),
+        ]),
+        html.Div(id='tabs-content-example-graph')
+    ])

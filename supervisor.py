@@ -217,7 +217,7 @@ class DrugDiscoverySupervisor:
                     ligand = LigandInfo(smiles=child_info[0],
                                         score=None,
                                         compound_id=len(self.chemical_space),
-                                        run_id=-1,
+                                        run_id=self.run_id,
                                         chemical_reaction=dict(
                                             parent_smiles=parent.smiles,
                                             parent_id=parent.compound_id,
@@ -260,59 +260,14 @@ class DrugDiscoverySupervisor:
                     return False
         return True
 
-    @property
-    def samplers_ids(self):
-        return [self.sub_samplers[i].sampler_id for i in range(len(self.sub_samplers))]
-
     def mp_samplers_step(self, global_step):
-        if len(self.sub_samplers) > 1:
-            with mp.Manager() as manager:
-                return_dict = manager.dict({self.sub_samplers[i].sampler_id: [] for i in range(len(self.sub_samplers))})
-                processes = [mp.Process(target=self.sub_samplers[i].step, args=(global_step, return_dict)) for i in range(len(self.sub_samplers))]
-                for p in processes:
-                    p.start()
-
-                for p in processes:
-                    p.join()
-
-                return_dict = dict(return_dict)
-        else:
-            return_dict = {}
-            self.sub_samplers[0].step(global_step, return_dict)
-
-        return_list = []
-        for k in self.samplers_ids:
-            for i in range(len(return_dict[k])):
-                return_dict[k][i].run_id = int(k)
-            return_list += return_dict[k]
+        return_dict = {}
+        return_list = self.sub_samplers.step(global_step, return_dict)
 
         return return_list
 
     def mp_samplers_adjourns(self, keep_separate_runs=True):
-        if len(self.sub_samplers) > 1:
-            if not keep_separate_runs:
-                processes = [mp.Process(target=self.sub_samplers[i].closing_step,
-                                        args=(self.chemical_space,))
-                             for i in range(len(self.sub_samplers))]
-            else:
-                processes = [mp.Process(target=self.sub_samplers[i].closing_step,
-                                        args=([
-                                                  LigandInfo(smiles=lig.smiles,
-                                                             compound_id=lig.compound_id,
-                                                             run_id=lig.run_id,
-                                                             chemical_reaction=lig.chemical_reaction,
-                                                             score=lig.score if lig.run_id == i or lig.run_id < 0 else None)
-                                                  for lig in self.chemical_space], )
-                                        )
-                             for i in range(len(self.sub_samplers))]
-
-            for p in processes:
-                p.start()
-
-            for p in processes:
-                p.join()
-        else:
-            self.sub_samplers[0].closing_step(self.chemical_space)
+        self.sub_samplers.closing_step(self.chemical_space)
 
     @property
     def best_drugs(self):
@@ -323,7 +278,7 @@ class DrugDiscoverySupervisor:
         # Load the chemical space
         self.chemical_space = [LigandInfo(smiles=self.starting_smiles,
                                           compound_id=0,
-                                          run_id=-1,
+                                          run_id=self.run_id,
                                           chemical_reaction=None,
                                           score=None)
                                ]
@@ -331,7 +286,7 @@ class DrugDiscoverySupervisor:
         self.new_generation([self.chemical_space[0]], self.n_child)
 
         # Initialize the samplers
-        self.sub_samplers = [deepcopy(self.sampler).initialize(self.chemical_space, i) for i in range(self.n_parallel_processes)]
+        self.sub_samplers = deepcopy(self.sampler).initialize(self.chemical_space, self.run_id)
 
         for global_step in range(n_iterations):
             sampled_ligands = self.mp_samplers_step(global_step)
@@ -353,15 +308,17 @@ class DrugDiscoverySupervisor:
         assert len(smiles) == len(dg)
         self.chemical_space = [LigandInfo(smiles=smiles[i],
                                           compound_id=i,
-                                          run_id=-1,
+                                          run_id=self.run_id,
                                           chemical_reaction=None,
                                           score=None)
                                for i in range(len(smiles))
                                ]
 
         # Initialize the samplers
-        self.sub_samplers = [deepcopy(self.sampler).initialize(self.chemical_space, i) for i in range(self.n_parallel_processes)]
+        self.sub_samplers = deepcopy(self.sampler).initialize(self.chemical_space, self.run_id)
 
+        scores_at_step = []
+        smiles_at_step = []
         for global_step in range(n_iterations):
             sampled_ligands = self.mp_samplers_step(global_step)
 
@@ -374,3 +331,8 @@ class DrugDiscoverySupervisor:
                 self.chemical_space[ligand.compound_id].score = score
 
             self.mp_samplers_adjourns(keep_separate_runs=False)
+
+            scores_at_step.append(scores)
+            smiles_at_step.append(computed_smiles)
+
+        return scores_at_step, smiles_at_step

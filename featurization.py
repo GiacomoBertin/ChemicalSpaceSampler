@@ -36,7 +36,7 @@ class Featurization(ABC):
 
 
 class PCAFeaturization(Featurization):
-    def __init__(self, n_components=2):
+    def __init__(self, n_components: int = 2):
         super(PCAFeaturization, self).__init__()
         self.smiles = []
         self.n_components = n_components
@@ -131,16 +131,16 @@ class GraphFeaturization(Featurization):
 
 class VAEFeaturization(Featurization):
     def __init__(self,
-                 encoder,
-                 decoder,
-                 smile_to_tensor,
-                 criterion=nn.MSELoss(),
-                 epochs=50,
-                 lr=1e-3,
-                 batch_size=32,
-                 chkpt_path=None,
-                 save_every=10,
-                 fixed_space=False):
+                 encoder: nn.Module,
+                 decoder: nn.Module,
+                 smile_to_tensor: Featurization,
+                 criterion: nn.Module = nn.MSELoss(),
+                 epochs: int = 50,
+                 lr: float = 1e-3,
+                 batch_size: int = 32,
+                 chkpt_path: str = None,
+                 save_every: int = 10,
+                 fixed_space: bool = False):
         super(VAEFeaturization, self).__init__()
         self.encoder = encoder
         self.decoder = decoder
@@ -238,7 +238,10 @@ class VAEFeaturization(Featurization):
 
 
 class MolDataset(Dataset):
-    def __init__(self, chemical_space: List[LigandInfo], featurizer, use_only_scored_ligands=True):
+    def __init__(self,
+                 chemical_space: List[LigandInfo],
+                 featurizer: Featurization,
+                 use_only_scored_ligands: bool = True):
         super(MolDataset, self).__init__()
         self.features = []
         self.featurizer = featurizer
