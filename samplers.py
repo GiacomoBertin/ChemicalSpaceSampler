@@ -99,7 +99,7 @@ class GCNActiveLearning(Sampler):
     def __init__(self,
                  featurization: Featurization,
                  net: nn.Module,
-                 criterion,
+                 criterion = nn.L1Loss(),
                  best_n: int = 10,
                  epochs=100,
                  lr=1e-3,
@@ -120,6 +120,7 @@ class GCNActiveLearning(Sampler):
         self.save_every = save_every
         self.best_n = best_n
         self.optimizer = None
+        self.predictions = None
 
     def load_chkpt(self, optimizer):
         if self.chkpt_path is not None:
@@ -142,16 +143,18 @@ class GCNActiveLearning(Sampler):
             ))
 
     def train_(self):
-        dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True, drop_last=True)
+        dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True, drop_last=False)
         self.optimizer = torch.optim.Adam(self.net.parameters(), lr=self.lr)
         device = next(self.net.parameters()).device
 
         starting_epoch = self.load_chkpt(self.optimizer)
-        pbar = trange(starting_epoch, self.epochs, desc='iteration')
+        pbar = trange(0, self.epochs, desc='iteration')
         self.net = self.net.train().to(device)
+
         for epoch in pbar:
 
             losses = []
+            prediction = {}
             for batch in dataloader:
                 self.optimizer.zero_grad()
 
@@ -163,9 +166,13 @@ class GCNActiveLearning(Sampler):
                 self.optimizer.step()
                 losses.append(loss.detach().item())
 
+                for i, k in enumerate(batch['lig']):
+                    prediction[k] = out[i].item()
+
             mean_loss = np.mean(losses)
             pbar.set_description(f'loss: {mean_loss:.2f} ')
 
+            self.predictions = prediction
             if epoch % self.save_every == 0:
                 self.save_chkpt(self.optimizer, epoch)
                 # print(f'[{epoch:>5d} / {self.epochs:>5d}] | loss: {mean_loss:1.3e}')
@@ -177,14 +184,27 @@ class GCNActiveLearning(Sampler):
     @torch.no_grad()
     def predict_(self):
         self.net.eval()
-        scores: List[Tuple[float, LigandInfo]] = [(self.net(self.dataset.features[i].to(self.device)).item(), self.chemical_space[i]) for i in range(len(self.dataset.features))]
+        dataset = MolDataset(list(filter(lambda x: x.compound_id not in self.proposed_ids, self.chemical_space)),
+                             self.featurization,
+                             use_only_scored_ligands=False)
+
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=False, drop_last=True)
+        scores: List[Tuple[float, LigandInfo]] = []
+        device = next(self.net.parameters()).device
+
+        for batch in tqdm(dataloader):
+            out = self.net(batch['x'].to(device))
+
+            for i, k in enumerate(batch['lig']):
+                scores.append((out[i].item(), self.chemical_space[k]))
+
         return scores
 
     def initialize(self, chemical_space: List[LigandInfo], sampler_id):
         self.featurization.initialize(chemical_space)
         self.sampler_id = sampler_id
         self.chemical_space = chemical_space
-        self.dataset = MolDataset(self.chemical_space, self.featurization)
+        self.dataset = MolDataset(self.chemical_space, self.featurization, use_only_scored_ligands=True)
         return self
 
     def step(self, i, return_dict: dict) -> List[LigandInfo]:
@@ -199,7 +219,7 @@ class GCNActiveLearning(Sampler):
     def closing_step(self, chemical_space: List[LigandInfo]):
         self.featurization.adjourn(chemical_space)
         self.chemical_space = chemical_space
-        self.dataset.set_chemical_space(self.chemical_space)
+        self.dataset.filter_chemical_space(self.chemical_space)
         self.train_()
 
 

@@ -246,9 +246,6 @@ class MolDataset(Dataset):
         self.features = []
         self.featurizer = featurizer
         self.chemical_space = chemical_space
-        for i in trange(0, len(self.chemical_space)):
-            self.features.append(self.featurizer(self.chemical_space[i].smiles))
-
         self.use_only_scored_ligands = use_only_scored_ligands
 
         if self.use_only_scored_ligands:
@@ -267,7 +264,7 @@ class MolDataset(Dataset):
     def __getitem__(self, item):
         lig: LigandInfo = self.chemical_space[item]
         x = self.featurizer(lig.smiles)
-        y = torch.tensor(lig.score)
+        y = torch.tensor(lig.score) if lig.score is not None else torch.tensor(0.0)
         return dict(
             x=x,
             y=y,

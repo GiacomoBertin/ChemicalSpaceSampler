@@ -9,6 +9,7 @@ from easydict import EasyDict
 import inspect
 import importlib
 import yaml
+from pprint import pprint
 
 
 def get_module_and_kwargs(module):
@@ -20,7 +21,9 @@ def get_module_and_kwargs(module):
 
 def build_components(args_spec: inspect.FullArgSpec, kwargs):
     for k in kwargs.keys():
-        if k in args_spec.annotations.keys():
+        if k in args_spec.annotations.keys() and kwargs[k] is not None:
+            if args_spec.annotations[k] in [Featurization, nn.Module, Sampler, Score]:
+                pprint(kwargs[k])
             if args_spec.annotations[k] == Featurization:
                 kwargs[k] = build_featurization(kwargs[k]['name'], kwargs[k]['kwargs'])
             elif args_spec.annotations[k] == nn.Module:
@@ -36,27 +39,27 @@ def build_components(args_spec: inspect.FullArgSpec, kwargs):
 def build_module(name, kwargs: dict):
     args, module = get_module_and_kwargs('models')
     kwargs = build_components(args[name], kwargs)
-    net = getattr(module, args[name])(**kwargs)
+    net = getattr(module, name)(**kwargs)
     return net
 
 
 def build_featurization(name, kwargs: dict):
     args, module = get_module_and_kwargs('featurization')
     kwargs = build_components(args[name], kwargs)
-    feat = getattr(module, args[name])(**kwargs)
+    feat = getattr(module, name)(**kwargs)
     return feat
 
 
 def build_sampler(name, kwargs):
     args, module = get_module_and_kwargs('samplers')
     kwargs = build_components(args[name], kwargs)
-    sampler = getattr(module, args[name])(**kwargs)
+    sampler = getattr(module, name)(**kwargs)
     return sampler
 
 
 def build_score(name, kwargs):
     args, module = get_module_and_kwargs('score')
-    score = getattr(module, args[name])(**kwargs)
+    score = getattr(module, name)(**kwargs)
     return score
 
 

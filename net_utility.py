@@ -12,17 +12,16 @@ def test_sampler(supervisor: DrugDiscoverySupervisor,
                  num_reruns=10,
                  file_name=None):
 
-    min_dg = [[] * num_iterations]
+    min_dg = [[] for _ in range(num_iterations)]
     for run_id in range(num_reruns):
         scores_at_step, smiles_at_step = supervisor.run_sampling_test(num_iterations, smiles, dg)
 
         for i in range(len(scores_at_step)):
-            min_dg_id = np.argmin(scores_at_step[i])
-            min_dg_i = scores_at_step[i][min_dg_id]
+            min_dg_i = np.min(scores_at_step[:i+1])
             min_dg[i].append(min_dg_i)
 
-    if file_name is not None:
-        torch.save(dict(min_dg=min_dg), file_name)
+        if file_name is not None:
+            torch.save(dict(min_dg=min_dg), file_name)
 
     return min_dg
 

@@ -97,19 +97,19 @@ class Watchdog:
 
 class DrugDiscoverySupervisor:
     def __init__(self,
-                 starting_smiles,
-                 working_directory,
-                 protein_pdb,
-                 log_file,
-                 sampler,
+                 starting_smiles: str,
+                 working_directory: str,
+                 protein_pdb: str,
+                 log_file: str,
+                 sampler: Sampler,
                  score: Score,
-                 n_child=1000,
-                 n_threads=1,
-                 domain_selection=None,
-                 n_max_parallel_process=10,
-                 lag_iterations=5,
-                 best_n_ligands=10,
-                 run_id=0
+                 n_child: int = 1000,
+                 n_threads: int = 1,
+                 domain_selection: str = None,
+                 n_max_parallel_process: int = 10,
+                 lag_iterations: int = 5,
+                 best_n_ligands: int = 10,
+                 run_id: int = 0
                  ):
         """
         An algorithm for drug discovery.
@@ -320,6 +320,7 @@ class DrugDiscoverySupervisor:
         scores_at_step = []
         smiles_at_step = []
         for global_step in range(n_iterations):
+            print(f'step {global_step}')
             sampled_ligands = self.mp_samplers_step(global_step)
 
             scores = [dg[sampled_ligands[i].compound_id] for i in range(len(sampled_ligands))]

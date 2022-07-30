@@ -1,0 +1,45 @@
+supervisor:
+  starting_smiles: null
+  working_directory: /home/giacomo/Documents/LCP_runs/sampler_test
+  protein_pdb: null
+  log_file: ./log.dat
+  sampler:
+    name: GCNActiveLearning
+    kwargs:
+      featurization:
+        name: GraphFeaturization
+        kwargs:
+          use_edges: true
+          use_chirality: true
+          use_partial_charge: true
+          graph_lib: pyg
+
+      net:
+        name: GATNet
+        kwargs:
+          input_channels: 33
+          edge_dim: 11
+          output_channels: 1
+          hidden_channels: 64
+          num_layers: 2
+          use_batch_norm: true
+          heads: 2
+          concat: false
+          dropout: 0.2
+          num_final_layers: 3
+
+      best_n: 20
+      epochs: 30
+      lr: 0.01
+      batch_size: 64
+      chkpt_path: null
+      save_every: 50
+
+  score: null
+  n_child: 1000
+  n_threads: 1
+  domain_selection: null
+  n_max_parallel_process: 1
+  lag_iterations: 5
+  best_n_ligands: 10
+  run_id: 0
