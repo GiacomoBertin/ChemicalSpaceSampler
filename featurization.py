@@ -13,6 +13,10 @@ from tqdm import trange
 from rdkit import Chem
 from rdkit.Chem import AllChem, DataStructs
 
+CHARSET = [' ', '#', '(', ')', '+', '-', '/', '1', '2', '3', '4', '5', '6', '7',
+           '8', '=', '@', 'B', 'C', 'F', 'H', 'I', 'N', 'O', 'P', 'S', '[', '\\', ']',
+           'c', 'l', 'n', 'o', 'r', 's']
+
 
 class Featurization(ABC):
     def __init__(self):
@@ -35,6 +39,57 @@ class Featurization(ABC):
         pass
 
 
+class OneHotFeaturizer(Featurization):
+
+    def compute_distances(self, X, Y):
+        return None
+
+    def __init__(self, charset=None, padlength=120):
+        super(OneHotFeaturizer, self).__init__()
+        if charset is None:
+            charset = CHARSET
+        self.charset = charset
+        self.pad_length = padlength
+
+    def featurize(self, smiles):
+        return np.array([self.one_hot_encode(smi) for smi in smiles])
+
+    def one_hot_array(self, i):
+        return [int(x) for x in [ix == i for ix in range(len(self.charset))]]
+
+    def one_hot_index(self, c):
+        return self.charset.index(c)
+
+    def pad_smi(self, smi):
+        return smi.ljust(self.pad_length)
+
+    def one_hot_encode(self, smi):
+        return np.array([self.one_hot_array(self.one_hot_index(x)) for x in self.pad_smi(smi)])
+
+    def one_hot_decode(self, z):
+        z1 = []
+        for i in range(len(z)):
+            s = ''
+            for j in range(len(z[i])):
+                oh = np.argmax(z[i][j])
+                s += self.charset[oh]
+            z1.append([s.strip()])
+        return z1
+
+    def initialize(self, chemical_space: List[LigandInfo]):
+        pass
+
+    def adjourn(self, chemical_space: List[LigandInfo]):
+        pass
+
+    def __call__(self, smiles_list: Union[List[str], str]):
+        if isinstance(smiles_list, str):
+            return torch.from_numpy(self.one_hot_encode(smiles_list[:self.pad_length])).float().transpose(0, 1)
+        else:
+            return torch.stack([torch.from_numpy(self.one_hot_encode(smiles[:self.pad_length])).transpose(0, 1)
+                                for smiles in smiles_list], dim=0).float()
+
+
 class PCAFeaturization(Featurization):
     def __init__(self, n_components: int = 2):
         super(PCAFeaturization, self).__init__()
@@ -54,17 +109,22 @@ class PCAFeaturization(Featurization):
     def compute_distances(self, X, Y):
         x_feat = self(X)
         y_feat = self(Y)
-        dist = torch.cdist(torch.from_numpy(x_feat), torch.from_numpy(y_feat))
+        dist = torch.cdist(x_feat, y_feat)
         return dist.cpu().numpy()
 
-    def __call__(self, smiles_list: List[str]):
-        fps = np.array([smi2fp(smi) for smi in smiles_list])
-        return self.pca.transform(fps)
+    def __call__(self, smiles_list: Union[List[str], str]):
+        if isinstance(smiles_list, list):
+            fps = np.array([smi2fp(smi) for smi in smiles_list])
+            return torch.from_numpy(self.pca.transform(fps))
+        else:
+            fps = smi2fp(smiles_list)
+            return torch.from_numpy(self.pca.transform([fps]))
 
 
 class FingerprintFeaturization(Featurization):
-    def __init__(self):
+    def __init__(self, n_bits=1024):
         super(FingerprintFeaturization, self).__init__()
+        self.n_bits = n_bits
 
     def initialize(self, chemical_space: List[LigandInfo]):
         pass
@@ -73,8 +133,8 @@ class FingerprintFeaturization(Featurization):
         pass
 
     def compute_distances(self, X, Y):
-        x_feat = AllChem.GetMorganFingerprintAsBitVect(Chem.MolFromSmiles(X), 2, nBits=1024)
-        y_feat = [AllChem.GetMorganFingerprintAsBitVect(Chem.MolFromSmiles(x), 2, nBits=1024) for x in Y]
+        x_feat = AllChem.GetMorganFingerprintAsBitVect(Chem.MolFromSmiles(X), 2, nBits=self.n_bits)
+        y_feat = [AllChem.GetMorganFingerprintAsBitVect(Chem.MolFromSmiles(x), 2, nBits=self.n_bits) for x in Y]
         dist = 1.0 - np.array(DataStructs.BulkTanimotoSimilarity(x_feat, y_feat))
         return dist
 
@@ -83,7 +143,7 @@ class FingerprintFeaturization(Featurization):
             fps = np.array([smi2fp(smi) for smi in smiles_list])
         else:
             fps = smi2fp(smiles_list)
-        return fps
+        return torch.from_numpy(fps).float()
 
 
 class GraphFeaturization(Featurization):
@@ -134,7 +194,7 @@ class VAEFeaturization(Featurization):
                  encoder: nn.Module,
                  decoder: nn.Module,
                  smile_to_tensor: Featurization,
-                 criterion: nn.Module = nn.MSELoss(),
+                 criterion: str = 'MSELoss',
                  epochs: int = 50,
                  lr: float = 1e-3,
                  batch_size: int = 32,
@@ -147,7 +207,7 @@ class VAEFeaturization(Featurization):
         self.smile_to_tensor = smile_to_tensor
 
         self.dataset = None
-        self.criterion = criterion
+        self.criterion = getattr(nn, criterion)()
         self.epochs = epochs
         self.lr = lr
         self.dataset: MolDataset = None
@@ -190,6 +250,10 @@ class VAEFeaturization(Featurization):
         dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True, drop_last=True)
         self.load_chkpt(self.optimizer)
         pbar = trange(0, self.epochs, desc='iteration')
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+
+        self.encoder = self.encoder.to(device)
+        self.decoder = self.decoder.to(device)
 
         for epoch in pbar:
             losses = []
@@ -197,7 +261,7 @@ class VAEFeaturization(Featurization):
             for batch_idx, batch in enumerate(dataloader):
                 # print(vae(batch)[0].shape)
                 self.optimizer.zero_grad()
-                data = batch['x']
+                data = batch['x'].to(device)
                 z, mu, log_var = self.encoder(data)
                 recon_data = self.decoder(z)
 
@@ -206,7 +270,6 @@ class VAEFeaturization(Featurization):
                 losses.append(loss.detach().item())
 
                 self.optimizer.step()
-                # losses.append(loss.detach().item())
 
             mean_loss = np.mean(losses)
             pbar.set_description(f'loss: {mean_loss:.2f} ')
@@ -224,16 +287,22 @@ class VAEFeaturization(Featurization):
         if not self.fixed_space:
             self.initialize(chemical_space)
 
+    @torch.no_grad()
     def compute_distances(self, X, Y):
-        return None
+        x = self(X)
+        y = self(Y)
+        dist = torch.cdist(x, y)
+        return dist.cpu().numpy()
 
+    @torch.no_grad()
     def __call__(self, smiles_list: Union[List[str], str]):
         if isinstance(smiles_list, list):
-            features = torch.cat([self.smile_to_tensor(smiles) for smiles in smiles_list], dim=0)
+            features = torch.stack([self.smile_to_tensor(smiles) for smiles in smiles_list], dim=0)
         else:
-            features = self.smile_to_tensor(smiles_list)
-
-        x, _, _ = self.encoder(features)
+            features = self.smile_to_tensor(smiles_list)[None, ...]
+        self.encoder.eval()
+        device = next(self.encoder.parameters()).device
+        x = self.encoder(features.to(device))
         return x
 
 
@@ -270,5 +339,3 @@ class MolDataset(Dataset):
             y=y,
             lig=lig.compound_id
         )
-
-

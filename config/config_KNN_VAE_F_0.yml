@@ -1,0 +1,63 @@
+supervisor:
+  starting_smiles: null
+  working_directory: /home/giacomo/Documents/LCP_runs/sampler_test
+  protein_pdb: null
+  log_file: ./log.dat
+  sampler:
+    name: KNNSampler
+    kwargs:
+      featurization:
+        name: VAEFeaturization
+        kwargs:
+          encoder:
+            name: Encoder
+            kwargs:
+              input_ch: 1024
+              latent_ch: 16
+              hidden_ch: [512, 256]
+              layer_instance: fc
+              intermediate_layer: null
+              use_batch_norm: false
+              num_layers: 3
+              num_layers_head: 2
+              use_vae: true
+              activation: ReLU
+
+          decoder:
+            name: Decoder
+            kwargs:
+              input_ch: 1024
+              latent_ch: 16
+              hidden_ch: [256, 512]
+              layer_instance: fc
+              use_batch_norm: false
+              rearrange_str: 'b c -> b c'
+              rearrange_kwarg: null
+              num_layers: 3
+              final_activation: sigmoid
+              activation: ReLU
+
+          smile_to_tensor:
+            name: FingerprintFeaturization
+            kwargs:
+              n_bits: 1024
+
+          criterion: BCELoss
+          epochs: 20
+          lr: 0.001
+          batch_size: 32
+          chkpt_path: null
+          save_every: 100
+          fixed_space: true
+
+      k: 20
+      sampler_id: 0
+
+  score: null
+  n_child: 1000
+  n_threads: 1
+  domain_selection: null
+  n_max_parallel_process: 1
+  lag_iterations: 5
+  best_n_ligands: 10
+  run_id: 0

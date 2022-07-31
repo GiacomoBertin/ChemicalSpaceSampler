@@ -1,0 +1,24 @@
+supervisor:
+  starting_smiles: null
+  working_directory: /home/giacomo/Documents/LCP_runs/sampler_test
+  protein_pdb: null
+  log_file: ./log.dat
+  sampler:
+    name: KNNSampler
+    kwargs:
+      featurization:
+        name: PCAFeaturization
+        kwargs:
+          n_components: 16
+
+      k: 20
+      sampler_id: 0
+
+  score: null
+  n_child: 1000
+  n_threads: 1
+  domain_selection: null
+  n_max_parallel_process: 1
+  lag_iterations: 5
+  best_n_ligands: 10
+  run_id: 0

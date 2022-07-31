@@ -80,7 +80,7 @@ class KNNSampler(Sampler, ABC):
     def step(self, i, return_dict: dict) -> List[LigandInfo]:
         ligs = [smi for smi in self.chemical_space if smi.compound_id not in self.proposed_ids]
         smiles = [smi.smiles for smi in ligs]
-        sim = self.featurization.compute_distances(self.chemical_space[self.best_ligand_id].smiles, smiles)
+        sim = self.featurization.compute_distances(self.chemical_space[self.best_ligand_id].smiles, smiles)[0]
         idx = np.argsort(sim)[1:self.k+1]
         return_dict[self.sampler_id] = [ligs[i] for i in idx]
         self.proposed_ids += [ligs[i].compound_id for i in idx]
@@ -144,8 +144,9 @@ class GCNActiveLearning(Sampler):
 
     def train_(self):
         dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True, drop_last=False)
+        print(len(self.dataset))
         self.optimizer = torch.optim.Adam(self.net.parameters(), lr=self.lr)
-        device = next(self.net.parameters()).device
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
         starting_epoch = self.load_chkpt(self.optimizer)
         pbar = trange(0, self.epochs, desc='iteration')

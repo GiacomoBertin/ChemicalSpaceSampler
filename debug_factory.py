@@ -1,7 +1,7 @@
 import torch
 
 from factory import *
-from net_utility import test_sampler, plot_violin
+from net_utility import test_sampler, plot_violin, evaluate_net, evaluate_VAE
 import os.path as osp
 
 
@@ -30,11 +30,18 @@ def load_dataset(file_dg, file_smiles):
 
 dataset, smiles, dg = load_dataset('./DatabaseOMSDrugs_scores.dat', './DatabaseOMSDrugs.dat')
 
-supervisor = build_supervisor('config/config_GATNet_0.yml')
-file_name = '/home/giacomo/Documents/LCP_runs/sampler_test/run_0_GATNet.pth'
-if not osp.exists(file_name):
-    min_dg = test_sampler(supervisor, smiles, dg, num_iterations=5, file_name=file_name)
+supervisor = build_supervisor('config/config_KNN_VAE_F_0.yml')
+file_name = '/home/giacomo/Documents/LCP_runs/sampler_test/run_2_KNN_PCA.pth'
 
-else:
-    min_dg = torch.load(file_name)['min_dg']
-plot_violin({'GATNet': min_dg})
+evaluate_VAE(supervisor.sampler.featurization.encoder,
+             supervisor.sampler.featurization.decoder,
+             nn.MSELoss(),
+             supervisor.sampler.featurization.smile_to_tensor,
+             smiles,
+             n_incrementation=200,
+             batch_size=64,
+             lr=1e-3,
+             epochs=50,
+             n_max_test=5,
+             )
+

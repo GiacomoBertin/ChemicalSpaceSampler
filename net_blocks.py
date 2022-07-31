@@ -24,17 +24,17 @@ class Unsqueeze(nn.Module):
 
 
 # fc layers
-def fc(batch_norm, nc_inp, nc_out):
+def fc(batch_norm, nc_inp, nc_out, activation=None):
     if batch_norm:
         return nn.Sequential(
             nn.Linear(nc_inp, nc_out, bias=True),
             nn.BatchNorm1d(nc_out),
-            nn.LeakyReLU(0.2, inplace=True)
+            nn.LeakyReLU(0.2, inplace=True) if activation is None else activation
         )
     else:
         return nn.Sequential(
             nn.Linear(nc_inp, nc_out),
-            nn.LeakyReLU(0.1, inplace=True)
+            nn.LeakyReLU(0.1, inplace=True) if activation is None else activation
         )
 
 
@@ -66,19 +66,19 @@ def conv2d(batch_norm, in_planes, out_planes, kernel_size=3, stride=1):
 
 
 # 2D convolution layers
-def conv1d(batch_norm, in_planes, out_planes, kernel_size=3, stride=1):
+def conv1d(batch_norm, in_planes, out_planes, kernel_size=3, stride=1, activation=None):
     if batch_norm:
         return nn.Sequential(
             nn.Conv1d(in_planes, out_planes, kernel_size=kernel_size, stride=stride, padding=(kernel_size - 1) // 2,
                       bias=True),
             nn.BatchNorm1d(out_planes),
-            nn.LeakyReLU(0.2, inplace=True)
+            nn.LeakyReLU(0.2, inplace=True) if activation is None else activation
         )
     else:
         return nn.Sequential(
             nn.Conv1d(in_planes, out_planes, kernel_size=kernel_size, stride=stride, padding=(kernel_size - 1) // 2,
                       bias=True),
-            nn.LeakyReLU(0.2, inplace=True)
+            nn.LeakyReLU(0.2, inplace=True) if activation is None else activation
         )
 
 
@@ -89,10 +89,10 @@ def deconv2d(in_planes, out_planes):
     )
 
 
-def deconv1d(in_planes, out_planes):
+def deconv1d(in_planes, out_planes, activation=None):
     return nn.Sequential(
         nn.ConvTranspose1d(in_planes, out_planes, kernel_size=4, stride=2, padding=1, bias=True),
-        nn.LeakyReLU(0.2, inplace=True)
+        nn.LeakyReLU(0.2, inplace=True) if activation is None else activation
     )
 
 

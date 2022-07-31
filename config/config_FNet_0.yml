@@ -7,30 +7,26 @@ supervisor:
     name: GCNActiveLearning
     kwargs:
       featurization:
-        name: GraphFeaturization
+        name: FingerprintFeaturization
         kwargs:
-          use_edges: true
-          use_chirality: true
-          use_partial_charge: true
-          graph_lib: pyg
-
+          n_bits: 1024
       net:
-        name: GATNet
+        name: Encoder
         kwargs:
-          input_channels: 33
-          edge_dim: 11
-          output_channels: 1
-          hidden_channels: 64
-          num_layers: 4
-          use_batch_norm: true
-          heads: 4
-          concat: false
-          dropout: 0.2
-          num_final_layers: 4
+          input_ch: 1024
+          latent_ch: 1
+          hidden_ch: null
+          # layer_instance:
+          intermediate_layer: null
+          use_batch_norm: false
+          num_layers: 5
+          num_layers_head: 3
+          # net_init: null
+          use_vae: false
 
       best_n: 20
       epochs: 30
-      lr: 0.01
+      lr: 0.001
       batch_size: 64
       chkpt_path: null
       save_every: 50
