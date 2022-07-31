@@ -21,12 +21,12 @@ supervisor:
           edge_dim: 11
           output_channels: 1
           hidden_channels: 64
-          num_layers: 4
+          num_layers: 2
           use_batch_norm: true
-          heads: 4
+          heads: 2
           concat: false
           dropout: 0.2
-          num_final_layers: 4
+          num_final_layers: 3
 
       best_n: 20
       epochs: 30

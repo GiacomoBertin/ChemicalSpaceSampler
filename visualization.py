@@ -615,6 +615,36 @@ def create_mol3d_style(
     return atom_styles
 
 
+def get_run_info(run_id=0):
+    r = redis.Redis(db=run_id)
+    current_step = r.get('computed_step')
+    computed_steps_ids = json.loads(r.get('computed_steps_ids'))
+    chemical_space = {}
+    for k in r.keys():
+        if k != 'computed_step' and k != 'computed_steps_ids':
+            lig = json.loads(r.get(k))
+            if isinstance(lig, dict):
+                chemical_space[lig['compound_id']] = lig
+
+    steps = []
+    min_dg = []
+    min_smiles = []
+    min_ids = []
+    all_mols = []
+    for i in range(len(computed_steps_ids)):
+        steps.append(float(i))
+        mols = [chemical_space[k] for k in computed_steps_ids[i]]
+        all_mols += mols
+        min_id = np.argmin([mol['score'] for mol in all_mols])
+        min_dg.append(float(all_mols[min_id]['score']))
+        min_ids.append(all_mols[min_id]['compound_id'])
+        min_smiles.append(all_mols[min_id]['smiles'])
+
+    df = pd.DataFrame({'x': steps, 'y': min_dg, 'smiles': min_smiles, 'id': min_ids})
+
+    return df
+
+
 def plot_dg(run_id=0):
     r = redis.Redis(db=run_id)
     current_step = r.get('computed_step')
@@ -910,3 +940,172 @@ def run_main_visualization_app():
         ]),
         html.Div(id='tabs-content-example-graph')
     ])
+
+
+def supervise_3d_complex_app(pdb_name, folder_complexes, run_id=0, range_within=None):
+    app = JupyterDash(__name__)
+    df = get_run_info(run_id)
+    # df = pd.DataFrame({'x': steps, 'y': min_dg, 'smiles': min_smiles, 'id': min_ids})
+
+    get_ligand_path = lambda complexes_id, folder: osp.join(folder, str(complexes_id), f'{pdb_name}_{complexes_id}_ligand_1.pdb')
+    get_protein_path = lambda complexes_id, folder: osp.join(folder, str(complexes_id), f'{pdb_name}_{complexes_id}_protein.pdb')
+
+    data, style, data_protein, data_ligand, data_poket, head = visualize_3d_complex(
+        get_ligand_path(df['id'][0], folder_complexes),
+        get_protein_path(df['id'][0], folder_complexes),
+        range_within
+    )
+
+    app.layout = html.Div([
+        html.Div([
+            dashbio.Molecule3dViewer(
+                id='dashbio-default-molecule3d',
+                modelData=data,
+                styles=style
+            ),
+
+        ], style={'padding': 10, 'flex': 1}),
+        html.Div([
+
+            dcc.Dropdown(
+                id="dashbio-protein_color_scheme",
+                value='residue',
+                searchable=False,
+                placeholder="Protein color scheme",
+                options=[{"label": s.replace('_', ' ').capitalize(), "value": s} for s in ["residue", "atom", "residue_type", "chain"]]
+            ),
+            html.Hr(),
+            dcc.Dropdown(
+                id="dashbio-protein_rep",
+                value='cartoon',
+                searchable=False,
+                placeholder="Protein Style",
+                # style={'color': 'gray', 'background': 'gray'},
+                options=[{"label": s.replace('_', ' ').capitalize(), "value": s} for s in ['stick', 'cartoon', 'sphere']]
+            ),
+
+            dcc.Dropdown(
+                id="dashbio-ligand_rep",
+                value='stick',
+                searchable=False,
+                placeholder="Ligand Style",
+                options=[{"label": s.replace('_', ' ').capitalize(), "value": s} for s in ['stick', 'cartoon', 'sphere']]
+            ),
+
+            dcc.Dropdown(
+                id="dashbio-pocket_rep",
+                value='stick',
+                searchable=False,
+                placeholder="Pocket Style",
+                options=[{"label": s.replace('_', ' ').capitalize(), "value": s} for s in ['stick', 'cartoon', 'sphere']]
+            ),
+            html.Hr(),
+            dcc.Slider(
+                id="zoomfactor-slider",
+                min=0.4,
+                max=2.0,
+                step=None,
+                marks={0.4: "0.4", 0.8: "0.8", 1.2: "1.2", 1.6: "1.6", 2.0: "2.0"},
+                value=0.8,
+            ),
+            dcc.Slider(
+                id="range-slider",
+                min=0,
+                max=15,
+                step=1,
+                marks={i: str(i) for i in range(0, 16, 5)},
+                value=10,
+            ),
+            html.Hr(),
+            dcc.Markdown(head, style={'color': '#b4b4b4'}),
+            html.Hr(),
+            dcc.Markdown("Selection data", style={'color': '#b4b4b4'}),
+            html.Hr(),
+            html.Div(id='default-molecule3d-output')
+
+        ], style={'padding': 10, 'flex': 1}),
+        html.Div([
+            dcc.Interval(
+                id='interval-component',
+                interval=1 * 1000,  # in milliseconds
+                n_intervals=0
+            ),
+
+            dcc.Slider(
+                id="slider-iterations",
+                min=0,
+                max=10,
+                step=1,
+                marks={i: str(i) for i in range(0, 10)},
+                value=0,
+            )
+        ])
+    ], style={'display': 'flex', 'flex-direction': 'row'})
+
+    @app.callback(
+        Output('slider-iterations', 'max'),
+        Output('slider-iterations', 'marks'),
+
+        Input('interval-component', 'n_intervals'),
+    )
+    def adjourn_slider_step(n_intervals):
+        df = get_run_info(run_id)
+
+        max_slider = len(df['id'])
+        marks = {i: str(i) for i in range(0, max_slider, 2)}
+        return max_slider, marks
+
+    @app.callback(
+        Output('default-molecule3d-output', 'children'),
+        Output("dashbio-default-molecule3d", "zoom"),
+        Output('dashbio-default-molecule3d', 'modelData'),
+        Output('dashbio-default-molecule3d', 'styles'),
+
+        Input('dashbio-default-molecule3d', 'selectedAtomIds'),
+        Input("dashbio-protein_color_scheme", "value"),
+        Input("dashbio-protein_rep", "value"),
+        Input("dashbio-ligand_rep", "value"),
+        Input("dashbio-pocket_rep", "value"),
+        Input("zoomfactor-slider", "value"),
+        Input("range-slider", "value"),
+    )
+    def show_selected_atoms(
+            atom_ids,
+            protein_color_scheme,
+            protein_rep,
+            ligand_rep,
+            pocket_rep,
+            slider,
+            range_w,
+            slider_iterations,
+    ):
+        if range_w == 0:
+            range_w = None
+
+        df = get_run_info(run_id)
+
+        data, style, data_protein, data_ligand, data_poket, _ = visualize_3d_complex(
+            get_ligand_path(df['id'][slider_iterations], folder_complexes),
+            get_protein_path(df['id'][slider_iterations], folder_complexes),
+            range_within
+        )
+
+        style = create_mol3d_style([data_protein['atoms'], data_ligand['atoms'], data_poket['atoms']] if data_poket is not None else
+                                   [data_protein['atoms'], data_ligand['atoms']],
+                                   [protein_rep, ligand_rep, pocket_rep],
+                                   color_elements=[protein_color_scheme, 'atom', protein_color_scheme],
+                                   default_c=[None, None, None])
+
+        if atom_ids is None or len(atom_ids) == 0:
+            layout = 'No atom has been selected. Click somewhere on the molecular \
+            structure to select an atom.'
+        else:
+            layout = [html.Div([
+                dcc.Markdown('Element: {}, '.format(data['atoms'][atm]['elem']) +
+                             'Chain: {}, '.format(data['atoms'][atm]['chain']) +
+                             'Residue name: {} '.format(data['atoms'][atm]['residue_name']), style={'color': '#b4b4b4'}),
+            ]) for atm in atom_ids]
+
+        return layout, {"factor": slider, "animationDuration": 10, "fixedPath": False}, data, style
+
+    return app

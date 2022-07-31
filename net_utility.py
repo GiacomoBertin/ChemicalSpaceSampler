@@ -91,6 +91,7 @@ def evaluate_net(model: torch.nn.Module,
     dataset = MolDataset(chemical_space, featurization, use_only_scored_ligands=True)
     train_length = n_incrementation
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    print(device)
 
     all_results = {}
     num = 0
