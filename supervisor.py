@@ -286,7 +286,7 @@ class DrugDiscoverySupervisor:
         self.new_generation([self.chemical_space[0]], self.n_child)
 
         # Initialize the samplers
-        self.sub_samplers = deepcopy(self.sampler).initialize(self.chemical_space, self.run_id)
+        self.sub_samplers = self.sampler.initialize(self.chemical_space, self.run_id)
 
         for global_step in range(n_iterations):
             sampled_ligands = self.mp_samplers_step(global_step)

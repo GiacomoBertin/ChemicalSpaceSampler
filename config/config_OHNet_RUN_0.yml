@@ -1,8 +1,8 @@
 supervisor:
-  starting_smiles: null
-  working_directory: /home/giacomo/Documents/LCP_runs/sampler_test
-  protein_pdb: null
-  log_file: ./log.dat
+  starting_smiles: OCCCC([O-])=O
+  working_directory: /home/giacomo/Documents/LCP_runs/RUN_0/docking
+  protein_pdb: 6fff
+  log_file: /home/giacomo/Documents/LCP_runs/RUN_0/log.dat
   sampler:
     name: GCNActiveLearning
     kwargs:
@@ -28,7 +28,7 @@ supervisor:
           # net_init: null
           use_vae: false
 
-      best_n: 20
+      best_n: 3
       epochs: 30
       lr: 0.001
       batch_size: 64

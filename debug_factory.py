@@ -30,18 +30,7 @@ def load_dataset(file_dg, file_smiles):
 
 dataset, smiles, dg = load_dataset('./DatabaseOMSDrugs_scores.dat', './DatabaseOMSDrugs.dat')
 
-supervisor = build_supervisor('config/config_KNN_VAE_F_0.yml')
-file_name = '/home/giacomo/Documents/LCP_runs/sampler_test/run_2_KNN_PCA.pth'
+supervisor = build_supervisor('config/config_OHNet_RUN_0.yml')
+supervisor.run(100)
 
-evaluate_VAE(supervisor.sampler.featurization.encoder,
-             supervisor.sampler.featurization.decoder,
-             nn.MSELoss(),
-             supervisor.sampler.featurization.smile_to_tensor,
-             smiles,
-             n_incrementation=200,
-             batch_size=64,
-             lr=1e-3,
-             epochs=50,
-             n_max_test=5,
-             )
 

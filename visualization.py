@@ -475,22 +475,30 @@ def visualize_chemical_space(smiles=None, components_mode='pca', color_values=No
 
 
 def online_chemical_space(components_mode='pca', color_values=None, label='', run_id=0, sampler_id=0):
-    r = redis.Redis(db=run_id)
-    num_ligands = int(r.get('num_ligands'))
-    ligands: List[LigandInfo] = [dict(r.get(i)) for i in range(num_ligands) if r.get(i) is not None]
-    smiles = [lig.smiles for lig in ligands]
-    dg = [lig.dg if (lig.dg is not None) and lig.run_id == sampler_id else 0. for lig in ligands]
+    df, chemical_space = get_run_info(run_id, return_chemical_space=True)
+    # df = pd.DataFrame({'x': steps, 'y': min_dg, 'smiles': min_smiles, 'id': min_ids})
 
-    df_esol = pd.DataFrame({'smiles': smiles, 'Compound ID': np.array([f'Compound_{i}' for i in range(len(smiles))])})
-    if color_values is None:
-        color_values = dg
+    smiles = [chemical_space[lig_id]['smiles'] for lig_id in chemical_space.keys()]
+    compound_ids = [chemical_space[lig_id]['compound_id'] for lig_id in chemical_space.keys()]
+    best_smiles = df['smiles']
+
+    df_esol = pd.DataFrame({'smiles': smiles, 'Compound ID': np.array([f'Compound_{i}' for i in compound_ids])})
+    df_best = pd.DataFrame({'smiles': best_smiles, 'Compound ID': np.array([f'Compound_{i}' for i in df['id']])})
+
     if components_mode == 'pca':
         esol_fps = np.array([smi2fp(smi) for smi in df_esol['smiles']])
         pca = PCA(n_components=2)
         components = pca.fit_transform(esol_fps.reshape(-1, 1024))
         df_esol['PCA-1'] = components[:, 0]
         df_esol['PCA-2'] = components[:, 1]
-        df_esol['color'] = color_values
+        df_esol['color'] = np.arange(0, len(smiles))
+
+        best_fps = np.array([smi2fp(smi) for smi in df_best['smiles']])
+        components = pca.fit_transform(best_fps.reshape(-1, 1024))
+        df_best['PCA-1'] = components[:, 0]
+        df_best['PCA-2'] = components[:, 1]
+        df_best['color'] = np.arange(0, len(best_smiles))
+
 
     elif components_mode == 'mds':
         components = transorm_MDS([Chem.MolFromSmiles(smi) for smi in df_esol['smiles']], 2)
@@ -498,24 +506,26 @@ def online_chemical_space(components_mode='pca', color_values=None, label='', ru
         df_esol['PCA-2'] = components[:, 1]
         df_esol['color'] = color_values
 
-    fig_pca = px.scatter(df_esol,
-                         x="PCA-1",
-                         y="PCA-2",
-                         color='color',
-                         title='PCA of morgan fingerprints',
-                         labels={'color': label},
-                         width=1200,
-                         height=800)
+        components = transorm_MDS([Chem.MolFromSmiles(smi) for smi in df_best['smiles']], 2)
+        df_best['PCA-1'] = components[:, 0]
+        df_best['PCA-2'] = components[:, 1]
+        df_best['color'] = np.arange(0, len(best_smiles))
 
-    # fig_pca.add_trace(go.Scatter(x=df_esol['PCA-1'], y=df_esol['PCA-2'],
-    #                             mode='lines',
-    #                             name='trajectory'))
+    fig_pca = go.Figure()
+    fig_pca.add_trace(go.Scatter(x=df_esol['PCA-1'] , y=df_esol['PCA-2'],
+                                 mode='markers')
+                      )
+    fig_pca.add_trace(go.Scatter(x=df_esol['PCA-1'] , y=df_esol['PCA-2'],
+                                 mode='lines')
+                      )
 
     app_pca = add_molecules(fig=fig_pca,
                             df=df_esol,
                             smiles_col='smiles',
                             title_col='Compound ID',
                             )
+    # df = pd.DataFrame({'x': steps, 'y': min_dg, 'smiles': min_smiles, 'id': min_ids})
+
     return app_pca, fig_pca
 
 
@@ -615,7 +625,7 @@ def create_mol3d_style(
     return atom_styles
 
 
-def get_run_info(run_id=0):
+def get_run_info(run_id=0, return_chemical_space=False):
     r = redis.Redis(db=run_id)
     current_step = r.get('computed_step')
     computed_steps_ids = json.loads(r.get('computed_steps_ids'))
@@ -641,8 +651,10 @@ def get_run_info(run_id=0):
         min_smiles.append(all_mols[min_id]['smiles'])
 
     df = pd.DataFrame({'x': steps, 'y': min_dg, 'smiles': min_smiles, 'id': min_ids})
-
-    return df
+    if return_chemical_space:
+        return df, chemical_space
+    else:
+        return df
 
 
 def plot_dg(run_id=0):
