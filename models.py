@@ -207,7 +207,7 @@ class Encoder(nn.Module):
                          for i in range(len(hidden_ch) - 1)]
 
         self.net = nn.Sequential(*self.net)
-        net_init(self.net)
+        # net_init(self.net)
 
         self.head = []
 
@@ -327,7 +327,7 @@ class Decoder(nn.Module):
             self.net.append(nn.Softmax(dim=int(self.final_activation.split('|')[-1])))
 
         self.net = nn.Sequential(*self.net)
-        net_init(self.net)
+        # net_init(self.net)
 
     def forward(self, x):
         h = repeat(x, self.rearrange, **self.rearrange_kwarg)

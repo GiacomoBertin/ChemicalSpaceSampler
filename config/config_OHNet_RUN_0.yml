@@ -1,8 +1,8 @@
 supervisor:
   starting_smiles: OCCCC([O-])=O
-  working_directory: /home/giacomo/Documents/LCP_runs/RUN_0/docking
+  working_directory: /home/giacomo/Documents/LCP_runs/RUN_1/docking
   protein_pdb: 6fff
-  log_file: /home/giacomo/Documents/LCP_runs/RUN_0/log.dat
+  log_file: /home/giacomo/Documents/LCP_runs/RUN_1/log.dat
   sampler:
     name: GCNActiveLearning
     kwargs:
@@ -28,7 +28,7 @@ supervisor:
           # net_init: null
           use_vae: false
 
-      best_n: 3
+      best_n: 10
       epochs: 30
       lr: 0.001
       batch_size: 64
@@ -38,13 +38,13 @@ supervisor:
   score:
     name: Autodock
     kwargs:
-      output_file: /home/giacomo/Documents/LCP_runs/RUN_0/docking_res.txt
-      folder: /home/giacomo/Documents/LCP_runs/RUN_0/docking
+      output_file: /home/giacomo/Documents/LCP_runs/RUN_1/docking_res.txt
+      folder: /home/giacomo/Documents/LCP_runs/RUN_1/docking
       keep_ions: true
       open_mode: w
       n_threads: 1
 
-  n_child: 1000
+  n_child: 100
   n_threads: 1
   domain_selection: null
   n_max_parallel_process: 1

@@ -66,11 +66,11 @@ class Ghose(ParentFilter):
         :returns: bool bool: True if the mol passes the filter; False if it fails the filter
         """
         ExactMWt = Descriptors.ExactMolWt(mol)
-        if 160 > ExactMWt > 500:
+        if ExactMWt > 500:
             return False
         
         num_atoms = mol.GetNumAtoms()
-        if 20 > num_atoms > 70:
+        if num_atoms > 70:
             return False
 
         num_H_bond_donors = Lipinski.NumHDonors(mol)

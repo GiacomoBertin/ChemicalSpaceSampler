@@ -474,16 +474,28 @@ def visualize_chemical_space(smiles=None, components_mode='pca', color_values=No
     return app_pca, fig_pca
 
 
-def online_chemical_space(components_mode='pca', color_values=None, label='', run_id=0, sampler_id=0):
-    df, chemical_space = get_run_info(run_id, return_chemical_space=True)
+def online_chemical_space(components_mode='pca', run_id=0, json_file=None):
+    df, chemical_space, steps, min_dg, min_smiles, min_ids, computed_steps_ids = get_run_info(run_id,
+                                                                                              json_file,
+                                                                                              return_chemical_space=True)
+
+    def get_step(lig_id, computed):
+        for i in range(len(computed)):
+            if lig_id in computed[i]:
+                return i + 1
+        return 0
+
     # df = pd.DataFrame({'x': steps, 'y': min_dg, 'smiles': min_smiles, 'id': min_ids})
 
     smiles = [chemical_space[lig_id]['smiles'] for lig_id in chemical_space.keys()]
     compound_ids = [chemical_space[lig_id]['compound_id'] for lig_id in chemical_space.keys()]
-    best_smiles = df['smiles']
+    score = [chemical_space[lig_id]['score'] if chemical_space[lig_id]['score'] is not None else 0.0
+              for lig_id in chemical_space.keys()]
 
-    df_esol = pd.DataFrame({'smiles': smiles, 'Compound ID': np.array([f'Compound_{i}' for i in compound_ids])})
-    df_best = pd.DataFrame({'smiles': best_smiles, 'Compound ID': np.array([f'Compound_{i}' for i in df['id']])})
+    computed_at_step = [get_step(lig_id, computed_steps_ids) for lig_id in chemical_space.keys()]
+
+    df_esol = pd.DataFrame({'smiles': smiles, 'step': computed_at_step, 'score': score,
+                            'id': np.array([f'Compound_{i}' for i in compound_ids])})
 
     if components_mode == 'pca':
         esol_fps = np.array([smi2fp(smi) for smi in df_esol['smiles']])
@@ -491,42 +503,22 @@ def online_chemical_space(components_mode='pca', color_values=None, label='', ru
         components = pca.fit_transform(esol_fps.reshape(-1, 1024))
         df_esol['PCA-1'] = components[:, 0]
         df_esol['PCA-2'] = components[:, 1]
-        df_esol['color'] = np.arange(0, len(smiles))
-
-        best_fps = np.array([smi2fp(smi) for smi in df_best['smiles']])
-        components = pca.fit_transform(best_fps.reshape(-1, 1024))
-        df_best['PCA-1'] = components[:, 0]
-        df_best['PCA-2'] = components[:, 1]
-        df_best['color'] = np.arange(0, len(best_smiles))
-
 
     elif components_mode == 'mds':
         components = transorm_MDS([Chem.MolFromSmiles(smi) for smi in df_esol['smiles']], 2)
         df_esol['PCA-1'] = components[:, 0]
         df_esol['PCA-2'] = components[:, 1]
-        df_esol['color'] = color_values
 
-        components = transorm_MDS([Chem.MolFromSmiles(smi) for smi in df_best['smiles']], 2)
-        df_best['PCA-1'] = components[:, 0]
-        df_best['PCA-2'] = components[:, 1]
-        df_best['color'] = np.arange(0, len(best_smiles))
+    fig_pca = px.scatter(df_esol,
+                         x="PCA-1",
+                         y="PCA-2",
+                         color='score',
+                         title='PCA of morgan fingerprints',
+                         labels={'color': ''},
+                         width=1200,
+                         height=800)
 
-    fig_pca = go.Figure()
-    fig_pca.add_trace(go.Scatter(x=df_esol['PCA-1'] , y=df_esol['PCA-2'],
-                                 mode='markers')
-                      )
-    fig_pca.add_trace(go.Scatter(x=df_esol['PCA-1'] , y=df_esol['PCA-2'],
-                                 mode='lines')
-                      )
-
-    app_pca = add_molecules(fig=fig_pca,
-                            df=df_esol,
-                            smiles_col='smiles',
-                            title_col='Compound ID',
-                            )
-    # df = pd.DataFrame({'x': steps, 'y': min_dg, 'smiles': min_smiles, 'id': min_ids})
-
-    return app_pca, fig_pca
+    return fig_pca, df_esol
 
 
 def visualize_3d_mol(mol: Union[str, AllChem.Mol]):
@@ -625,16 +617,27 @@ def create_mol3d_style(
     return atom_styles
 
 
-def get_run_info(run_id=0, return_chemical_space=False):
-    r = redis.Redis(db=run_id)
-    current_step = r.get('computed_step')
-    computed_steps_ids = json.loads(r.get('computed_steps_ids'))
-    chemical_space = {}
-    for k in r.keys():
-        if k != 'computed_step' and k != 'computed_steps_ids':
-            lig = json.loads(r.get(k))
-            if isinstance(lig, dict):
-                chemical_space[lig['compound_id']] = lig
+def get_run_info(run_id=0, json_file=None, return_chemical_space=False):
+    if json_file is None:
+        r = redis.Redis(db=run_id)
+        current_step = r.get('computed_step')
+        computed_steps_ids = json.loads(r.get('computed_steps_ids'))
+        chemical_space = {}
+        for k in r.keys():
+            if k != 'computed_step' and k != 'computed_steps_ids':
+                lig = json.loads(r.get(k))
+                if isinstance(lig, dict):
+                    chemical_space[lig['compound_id']] = lig
+    else:
+        with open(json_file) as f:
+            r = json.load(f)
+        computed_steps_ids = json.loads(r['computed_steps_ids'])
+        chemical_space = {}
+        for k in r.keys():
+            if k != 'computed_step' and k != 'computed_steps_ids':
+                lig = json.loads(r[k])
+                if isinstance(lig, dict):
+                    chemical_space[lig['compound_id']] = lig
 
     steps = []
     min_dg = []
@@ -652,39 +655,26 @@ def get_run_info(run_id=0, return_chemical_space=False):
 
     df = pd.DataFrame({'x': steps, 'y': min_dg, 'smiles': min_smiles, 'id': min_ids})
     if return_chemical_space:
-        return df, chemical_space
+        return df, chemical_space, steps, min_dg, min_smiles, min_ids, computed_steps_ids
     else:
         return df
 
 
-def plot_dg(run_id=0):
-    r = redis.Redis(db=run_id)
-    current_step = r.get('computed_step')
-    computed_steps_ids = json.loads(r.get('computed_steps_ids'))
-    chemical_space = {}
-    for k in r.keys():
-        if k != 'computed_step' and k != 'computed_steps_ids':
-            lig = json.loads(r.get(k))
-            if isinstance(lig, dict):
-                chemical_space[lig['compound_id']] = lig
-
-    steps = []
-    min_dg = []
-    min_smiles = []
-    min_ids = []
-    all_mols = []
-    for i in range(len(computed_steps_ids)):
-        steps.append(float(i))
-        mols = [chemical_space[k] for k in computed_steps_ids[i]]
-        all_mols += mols
-        min_id = np.argmin([mol['score'] for mol in all_mols])
-        min_dg.append(float(all_mols[min_id]['score']))
-        min_ids.append(all_mols[min_id]['compound_id'])
-        min_smiles.append(all_mols[min_id]['smiles'])
-
-    df = pd.DataFrame({'x': steps, 'y': min_dg, 'smiles': min_smiles, 'id': min_ids})
-    print(df)
+def plot_dg(run_id=0, json_file=None):
+    df, chemical_space, steps, min_dg, min_smiles, min_ids, computed_steps_ids = get_run_info(
+        run_id=run_id, json_file=json_file, return_chemical_space=True)
     fig = px.line(data_frame=df, x='x', y='y', hover_name='id', hover_data=["smiles"], markers=True)
+    fig.update_layout(
+        yaxis_title="Min DG (kcal/mol)",
+        xaxis_title="Step",
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(
+            family="Courier New, monospace",
+            size=18,
+            color="rgba(128,128,128,1)"
+        )
+    )
     return fig
 
 
@@ -708,7 +698,8 @@ def visualize_sampler_run(run_id=0):
     return app
 
 
-def visualize_3d_complex(ligand_pdb, protein_pdb, range_within=None,
+def visualize_3d_complex(ligand_pdb, protein_pdb,
+                         range_within=None,
                          protein_rep='cartoon',
                          ligand_rep='stick',
                          pocket_rep='stick',
@@ -901,62 +892,31 @@ def visualize_3d_complex_app(ligand_pdb, protein_pdb, range_within=None):
     return app
 
 
-def run_main_visualization_app():
-    external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-    app = Dash(__name__, external_stylesheets=external_stylesheets)
-    alpha = 0.7
-    app.layout = html.Div([
-        html.H1('Drug Discovery Supervisor'),
-        dcc.Interval(
-            id='interval-component',
-            interval=1 * 1000,  # in milliseconds
-            n_intervals=0
-        ),
-        dcc.Tabs(id="tabs-system", value='tab-1', children=[
-            dcc.Tab(label='Chemical Space',
-                    value='tab-chemical-space',
-                    children=html.Div(className='control-tab',
-                                      children=[
-                                          dcc.Store(id="smiles-menu", data=0),
-                                          dcc.Graph(id="graph-basic-2", clear_on_unhover=True),
-                                          dcc.Tooltip(
-                                              id="graph-tooltip", background_color=f"rgba(255,255,255,{alpha})"
-                                          ),
-                                      ]
-                                      )
-                    ),
-            dcc.Tab(label='Optimization Progresses',
-                    value='tab-optimization',
-                    children=html.Div(className='control-tab',
-                                      children=[
-                                          dcc.Graph(id="graph_min_dg"),
-                                      ]
-                                      )
-                    ),
-            dcc.Tab(label='Docking Visualization',
-                    value='tab-docking-visualization',
-                    children=html.Div(className='control-tab',
-                                      children=[
-                                          dcc.Graph(id="graph_min_dg"),
-                                      ]
-                                      )
-                    ),
-            dcc.Tab(label='Run Initialization',
-                    value='tab-run-initialization',
-                    children=html.Div(className='control-tab',
-                                      children=[
-                                          dcc.Graph(id="graph_min_dg"),
-                                      ]
-                                      )
-                    ),
-        ]),
-        html.Div(id='tabs-content-example-graph')
-    ])
-
-
-def supervise_3d_complex_app(pdb_name, folder_complexes, run_id=0, range_within=None):
+def supervise_3d_complex_app(
+        pdb_name,
+        folder_complexes,
+        run_id=0,
+        json_file=None,
+        range_within=None,
+        smiles_col: Union[str, List[str]] = "SMILES",
+        show_img: bool = True,
+        svg_size: int = 200,
+        alpha: float = 0.75,
+        mol_alpha: float = 0.7,
+        title_col: str = None,
+        show_coords: bool = True,
+        caption_cols: List[str] = None,
+        caption_transform: Dict[str, Callable] = {},
+        color_col: str = None,
+        marker_col: str = None,
+        wrap: bool = True,
+        wraplen: int = 20,
+        width: int = 150,
+        fontfamily: str = "Arial",
+        fontsize: int = 12,
+):
     app = JupyterDash(__name__)
-    df = get_run_info(run_id)
+    df = get_run_info(run_id, json_file)
     # df = pd.DataFrame({'x': steps, 'y': min_dg, 'smiles': min_smiles, 'id': min_ids})
 
     get_ligand_path = lambda complexes_id, folder: osp.join(folder, str(complexes_id), f'{pdb_name}_{complexes_id}_ligand_1.pdb')
@@ -968,91 +928,114 @@ def supervise_3d_complex_app(pdb_name, folder_complexes, run_id=0, range_within=
         range_within
     )
 
+    fig, df_h = online_chemical_space(run_id=run_id, json_file=json_file)
+
     app.layout = html.Div([
-        html.Div([
-            dashbio.Molecule3dViewer(
-                id='dashbio-default-molecule3d',
-                modelData=data,
-                styles=style
-            ),
+        dcc.Tabs([
+            dcc.Tab(label='Protein-Ligand Visualization', children=[
+                html.Div([
+                    html.Div([
+                        dashbio.Molecule3dViewer(
+                            id='dashbio-default-molecule3d',
+                            modelData=data,
+                            styles=style
+                        ),
+                    ], style={'padding': 10, 'flex': 1}),
+                    html.Div([
 
-        ], style={'padding': 10, 'flex': 1}),
-        html.Div([
+                        dcc.Dropdown(
+                            id="dashbio-protein_color_scheme",
+                            value='residue',
+                            searchable=False,
+                            placeholder="Protein color scheme",
+                            options=[{"label": s.replace('_', ' ').capitalize(), "value": s} for s in ["residue", "atom", "residue_type", "chain"]]
+                        ),
+                        html.Hr(),
+                        dcc.Dropdown(
+                            id="dashbio-protein_rep",
+                            value='cartoon',
+                            searchable=False,
+                            placeholder="Protein Style",
+                            # style={'color': 'gray', 'background': 'gray'},
+                            options=[{"label": s.replace('_', ' ').capitalize(), "value": s} for s in ['stick', 'cartoon', 'sphere']]
+                        ),
 
-            dcc.Dropdown(
-                id="dashbio-protein_color_scheme",
-                value='residue',
-                searchable=False,
-                placeholder="Protein color scheme",
-                options=[{"label": s.replace('_', ' ').capitalize(), "value": s} for s in ["residue", "atom", "residue_type", "chain"]]
-            ),
-            html.Hr(),
-            dcc.Dropdown(
-                id="dashbio-protein_rep",
-                value='cartoon',
-                searchable=False,
-                placeholder="Protein Style",
-                # style={'color': 'gray', 'background': 'gray'},
-                options=[{"label": s.replace('_', ' ').capitalize(), "value": s} for s in ['stick', 'cartoon', 'sphere']]
-            ),
+                        dcc.Dropdown(
+                            id="dashbio-ligand_rep",
+                            value='stick',
+                            searchable=False,
+                            placeholder="Ligand Style",
+                            options=[{"label": s.replace('_', ' ').capitalize(), "value": s} for s in ['stick', 'cartoon', 'sphere']]
+                        ),
 
-            dcc.Dropdown(
-                id="dashbio-ligand_rep",
-                value='stick',
-                searchable=False,
-                placeholder="Ligand Style",
-                options=[{"label": s.replace('_', ' ').capitalize(), "value": s} for s in ['stick', 'cartoon', 'sphere']]
-            ),
+                        dcc.Dropdown(
+                            id="dashbio-pocket_rep",
+                            value='stick',
+                            searchable=False,
+                            placeholder="Pocket Style",
+                            options=[{"label": s.replace('_', ' ').capitalize(), "value": s} for s in ['stick', 'cartoon', 'sphere']]
+                        ),
+                        html.Hr(),
+                        dcc.Slider(
+                            id="zoomfactor-slider",
+                            min=0.4,
+                            max=2.0,
+                            step=None,
+                            marks={0.4: "0.4", 0.8: "0.8", 1.2: "1.2", 1.6: "1.6", 2.0: "2.0"},
+                            value=0.8,
+                        ),
+                        dcc.Slider(
+                            id="range-slider",
+                            min=0,
+                            max=15,
+                            step=1,
+                            marks={i: str(i) for i in range(0, 16, 5)},
+                            value=10,
+                        ),
+                        dcc.Interval(
+                            id='interval-component',
+                            interval=1 * 1000,  # in milliseconds
+                            n_intervals=0
+                        ),
 
-            dcc.Dropdown(
-                id="dashbio-pocket_rep",
-                value='stick',
-                searchable=False,
-                placeholder="Pocket Style",
-                options=[{"label": s.replace('_', ' ').capitalize(), "value": s} for s in ['stick', 'cartoon', 'sphere']]
-            ),
-            html.Hr(),
-            dcc.Slider(
-                id="zoomfactor-slider",
-                min=0.4,
-                max=2.0,
-                step=None,
-                marks={0.4: "0.4", 0.8: "0.8", 1.2: "1.2", 1.6: "1.6", 2.0: "2.0"},
-                value=0.8,
-            ),
-            dcc.Slider(
-                id="range-slider",
-                min=0,
-                max=15,
-                step=1,
-                marks={i: str(i) for i in range(0, 16, 5)},
-                value=10,
-            ),
-            html.Hr(),
-            dcc.Markdown(head, style={'color': '#b4b4b4'}),
-            html.Hr(),
-            dcc.Markdown("Selection data", style={'color': '#b4b4b4'}),
-            html.Hr(),
-            html.Div(id='default-molecule3d-output')
+                        dcc.Slider(
+                            id="slider-iterations",
+                            min=0,
+                            max=10,
+                            step=1,
+                            marks={i: str(i) for i in range(0, 10)},
+                            value=0,
+                        ),
 
-        ], style={'padding': 10, 'flex': 1}),
-        html.Div([
-            dcc.Interval(
-                id='interval-component',
-                interval=1 * 1000,  # in milliseconds
-                n_intervals=0
-            ),
+                        html.Hr(),
+                        dcc.Markdown(head, id='header', style={'color': '#b4b4b4'}),
+                        html.Hr(),
+                        dcc.Markdown("Selection data", style={'color': '#b4b4b4'}),
+                        html.Hr(),
+                        html.Div(id='default-molecule3d-output')
 
-            dcc.Slider(
-                id="slider-iterations",
-                min=0,
-                max=10,
-                step=1,
-                marks={i: str(i) for i in range(0, 10)},
-                value=0,
-            )
+                    ], style={'padding': 10, 'flex': 1}),
+                ], style={'display': 'flex', 'flex-direction': 'row'})
+            ]),
+
+            dcc.Tab(label='Min DG\nVisualization', children=[
+                html.H4(f'visualization progresses run: {run_id}'),
+                dcc.Graph(id="graph-progress-run"),
+            ]),
+
+            dcc.Tab(label='Sampler Trajectory', children=[
+                dcc.Store(id="smiles-menu", data=0),
+                dcc.Graph(id="graph-basic-2", figure=fig, clear_on_unhover=True),
+                dcc.Tooltip(id="graph-tooltip", background_color=f"rgba(255,255,255,{alpha})"),
+            ]),
+
         ])
-    ], style={'display': 'flex', 'flex-direction': 'row'})
+    ])
+
+    @app.callback(Output('graph-progress-run', 'figure'),
+                  Input('interval-component', 'n_intervals'))
+    def update_metrics(n):
+        return plot_dg(run_id, json_file)
 
     @app.callback(
         Output('slider-iterations', 'max'),
@@ -1061,7 +1044,7 @@ def supervise_3d_complex_app(pdb_name, folder_complexes, run_id=0, range_within=
         Input('interval-component', 'n_intervals'),
     )
     def adjourn_slider_step(n_intervals):
-        df = get_run_info(run_id)
+        df = get_run_info(run_id, json_file)
 
         max_slider = len(df['id'])
         marks = {i: str(i) for i in range(0, max_slider, 2)}
@@ -1072,6 +1055,7 @@ def supervise_3d_complex_app(pdb_name, folder_complexes, run_id=0, range_within=
         Output("dashbio-default-molecule3d", "zoom"),
         Output('dashbio-default-molecule3d', 'modelData'),
         Output('dashbio-default-molecule3d', 'styles'),
+        Output('header', 'children'),
 
         Input('dashbio-default-molecule3d', 'selectedAtomIds'),
         Input("dashbio-protein_color_scheme", "value"),
@@ -1080,6 +1064,7 @@ def supervise_3d_complex_app(pdb_name, folder_complexes, run_id=0, range_within=
         Input("dashbio-pocket_rep", "value"),
         Input("zoomfactor-slider", "value"),
         Input("range-slider", "value"),
+        Input("slider-iterations", "value"),
     )
     def show_selected_atoms(
             atom_ids,
@@ -1089,17 +1074,17 @@ def supervise_3d_complex_app(pdb_name, folder_complexes, run_id=0, range_within=
             pocket_rep,
             slider,
             range_w,
-            slider_iterations,
+            slider_iterations
     ):
         if range_w == 0:
             range_w = None
 
-        df = get_run_info(run_id)
+        df = get_run_info(run_id, json_file)
 
-        data, style, data_protein, data_ligand, data_poket, _ = visualize_3d_complex(
+        data, style, data_protein, data_ligand, data_poket, head = visualize_3d_complex(
             get_ligand_path(df['id'][slider_iterations], folder_complexes),
             get_protein_path(df['id'][slider_iterations], folder_complexes),
-            range_within
+            range_w
         )
 
         style = create_mol3d_style([data_protein['atoms'], data_ligand['atoms'], data_poket['atoms']] if data_poket is not None else
@@ -1118,6 +1103,201 @@ def supervise_3d_complex_app(pdb_name, folder_complexes, run_id=0, range_within=
                              'Residue name: {} '.format(data['atoms'][atm]['residue_name']), style={'color': '#b4b4b4'}),
             ]) for atm in atom_ids]
 
-        return layout, {"factor": slider, "animationDuration": 10, "fixedPath": False}, data, style
+        return layout, {"factor": slider, "animationDuration": 10, "fixedPath": False}, data, style, head
 
+    fig.update_traces(hoverinfo="none", hovertemplate=None)
+    df_data = df_h.copy()
+    if color_col is not None:
+        df_data[color_col] = df_data[color_col].astype(str)
+    if marker_col is not None:
+        df_data[marker_col] = df_data[marker_col].astype(str)
+
+    if len(fig.data) != 1:
+        colors = {index: x.marker["color"] for index, x in enumerate(fig.data)}
+        if color_col is None and marker_col is None:
+            raise ValueError(
+                "More than one plotly curve in figure - color_col and/or marker_col needs to be specified."
+            )
+        if color_col is None:
+            _, curve_dict = find_grouping(fig, df_data, [marker_col])
+        elif marker_col is None:
+            _, curve_dict = find_grouping(fig, df_data, [color_col])
+        else:
+            _, curve_dict = find_grouping(fig, df_data, [color_col, marker_col])
+    else:
+        colors = {0: "black"}
+
+    @app.callback(
+        output=[
+            Output("graph-tooltip", "show"),
+            Output("graph-tooltip", "bbox"),
+            Output("graph-tooltip", "children"),
+        ],
+        inputs=[Input("graph-basic-2", "hoverData"), Input("smiles-menu", "data")],
+    )
+    def display_hover(hoverData, value):
+        if hoverData is None:
+            return False, no_update, no_update
+
+        value = smiles_col
+        if isinstance(value, str):
+            chosen_smiles = [value]
+        else:
+            chosen_smiles = value
+
+        pt = hoverData["points"][0]
+        bbox = pt["bbox"]
+        num = pt["pointNumber"]
+        curve_num = pt["curveNumber"]
+
+        if len(fig.data) != 1:
+            df_curve = curve_dict[curve_num].reset_index(drop=True)
+            df_row = df_curve.iloc[num]
+        else:
+            df_row = df_h.iloc[num]
+
+        hoverbox_elements = []
+
+        if show_img:
+            # The 2D image of the molecule is generated here
+            for col in chosen_smiles:
+                smiles = df_row[col]
+                buffered = BytesIO()
+                d2d = rdMolDraw2D.MolDraw2DSVG(svg_size, svg_size)
+                opts = d2d.drawOptions()
+                opts.clearBackground = False
+                d2d.DrawMolecule(Chem.MolFromSmiles(smiles))
+                d2d.FinishDrawing()
+                img_str = d2d.GetDrawingText()
+                buffered.write(str.encode(img_str))
+                img_str = base64.b64encode(buffered.getvalue())
+                img_str = f"data:image/svg+xml;base64,{repr(img_str)[2:-1]}"
+                # img_str = df_data.query(f"{col} == @smiles")[f"{col}_img"].values[0]
+
+                if len(smiles_col) > 1:
+                    hoverbox_elements.append(
+                        html.H2(
+                            f"{col}",
+                            style={
+                                "color": colors[curve_num],
+                                "font-family": fontfamily,
+                                "fontSize": fontsize + 2,
+                            },
+                        )
+                    )
+                hoverbox_elements.append(
+                    html.Img(
+                        src=img_str,
+                        style={
+                            "width": "100%",
+                            "background-color": f"rgba(255,255,255,{mol_alpha})",
+                        },
+                    )
+                )
+
+        if title_col is not None:
+            title = df_row[title_col]
+            if len(title) > wraplen:
+                if wrap:
+                    title = textwrap.fill(title, width=wraplen)
+                else:
+                    title = title[:wraplen] + "..."
+
+            # TODO colorbar color titles
+            hoverbox_elements.append(
+                html.H4(
+                    f"{title}",
+                    style={
+                        "color": colors[curve_num],
+                        "font-family": fontfamily,
+                        "fontSize": fontsize,
+                    },
+                )
+            )
+        if show_coords:
+            x_label = fig.layout.xaxis.title.text
+            y_label = fig.layout.yaxis.title.text
+            if x_label in caption_transform:
+                style_str = caption_transform[x_label](pt["x"])
+                hoverbox_elements.append(
+                    html.P(
+                        f"{x_label} : {style_str}",
+                        style={
+                            "color": "black",
+                            "font-family": fontfamily,
+                            "fontSize": fontsize,
+                        },
+                    )
+                )
+            else:
+                hoverbox_elements.append(
+                    html.P(
+                        f"{x_label}: {pt['x']}",
+                        style={
+                            "color": "black",
+                            "font-family": fontfamily,
+                            "fontSize": fontsize,
+                        },
+                    )
+                )
+            if y_label in caption_transform:
+                style_str = caption_transform[y_label](pt["y"])
+                hoverbox_elements.append(
+                    html.P(
+                        f"{y_label} : {style_str}",
+                        style={
+                            "color": "black",
+                            "font-family": fontfamily,
+                            "fontSize": fontsize,
+                        },
+                    )
+                )
+            else:
+                hoverbox_elements.append(
+                    html.P(
+                        f"{y_label} : {pt['y']}",
+                        style={
+                            "color": "black",
+                            "font-family": fontfamily,
+                            "fontSize": fontsize,
+                        },
+                    )
+                )
+        if caption_cols is not None:
+            for caption in caption_cols:
+                caption_val = df_row[caption]
+                if caption in caption_transform:
+                    style_str = caption_transform[caption](caption_val)
+                    hoverbox_elements.append(
+                        html.P(
+                            f"{caption} : {style_str}",
+                            style={
+                                "color": "black",
+                                "font-family": fontfamily,
+                                "fontSize": fontsize,
+                            },
+                        )
+                    )
+                else:
+                    hoverbox_elements.append(
+                        html.P(
+                            f"{caption} : {caption_val}",
+                            style={
+                                "color": "black",
+                                "font-family": fontfamily,
+                                "fontSize": fontsize,
+                            },
+                        )
+                    )
+        children = [
+            html.Div(
+                hoverbox_elements,
+                style={
+                    "width": f"{width}px",
+                    "white-space": "normal",
+                },
+            )
+        ]
+
+        return True, bbox, children
     return app

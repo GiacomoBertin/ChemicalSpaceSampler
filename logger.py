@@ -6,6 +6,16 @@ import redis
 import json
 
 
+def save_redis(file, run_id=0):
+    r = redis.Redis(db=run_id)
+    dict_ = {}
+
+    for k in r.keys():
+        dict_[k.decode("utf-8")] = r.get(k).decode("utf-8")
+    with open(file, 'w', encoding='utf-8') as f:
+        json.dump(dict_, f, ensure_ascii=False, indent=4)
+
+
 class Logger:
     def __init__(self, run_id=0, working_directory='./', restart=True):
         self.working_directory = working_directory
@@ -42,6 +52,7 @@ class Logger:
             self.r.set(ligand.compound_id, json.dumps(self.results[ligand.compound_id]._asdict()))
         self.computed_steps_ids.append(computed_id)
         self.r.set('computed_steps_ids', json.dumps(self.computed_steps_ids))
+        save_redis(self.log_dictionary, self.run_id)
 
     def reset(self):
         self.results.clear()
